@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1919952587",
+    "project_id": "apptecnicov2",
+    "storage_bucket": "apptecnicov2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1919952587:android:6b244166f641e334b9dd4e",
+        "android_client_info": {
+          "package_name": "com.apptecnicosv2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCsqVdMeNu-ivEkBKmduaO7zHUZfRZWZ3Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
