@@ -1,25 +1,37 @@
 import React from 'react';
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { 
-  StatusBar, 
-  StyleSheet, 
-  useColorScheme, 
-  View, 
-  Button 
+import {
+  StatusBar,
+  StyleSheet,
+  useColorScheme,
+  View,
+  Button
 } from 'react-native';
 import {
   SafeAreaProvider,
-  useSafeAreaInsets,
+  useSafeAreaInsets
 } from 'react-native-safe-area-context';
+import {
+  Provider as PaperProvider,
+  DefaultTheme,
+} from 'react-native-paper';
+import { NavigationContainer, DefaultTheme as NavigationDefaultTheme } from '@react-navigation/native';
+import { AuthProvider } from './src/context/AuthContext';
+import RootNavigator from './src/navigations/RootNavigator';
+import { navigationRef } from './src/services/NavigationService';
 import crashlytics from '@react-native-firebase/crashlytics';
 
-function App() {
-  const isDarkMode = useColorScheme() === 'dark';
-
+export default function App() {
   return (
     <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <AppContent />
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+
+      <PaperProvider theme={DefaultTheme}>
+        <NavigationContainer theme={NavigationDefaultTheme} ref={navigationRef}>
+          <AuthProvider>
+            <AppContent />
+          </AuthProvider>
+        </NavigationContainer>
+      </PaperProvider>
     </SafeAreaProvider>
   );
 }
@@ -28,21 +40,15 @@ function AppContent() {
   const safeAreaInsets = useSafeAreaInsets();
 
   const handleCrash = () => {
-    // 🔥 Esto forzará un crash nativo intencional
     crashlytics().crash();
   };
 
   return (
-    <View style={styles.container}>
-      {/* <NewAppScreen
-        templateFileName="App.tsx"
-        safeAreaInsets={safeAreaInsets}
-      /> */}
-
-      {/* Botón para forzar el crash */}
-      <View style={styles.buttonContainer}>
+    <View style={[styles.container, { paddingTop: safeAreaInsets.top }]}>
+      <RootNavigator />
+      {/* <View style={styles.crashButtonContainer}>
         <Button title="Forzar Crash" onPress={handleCrash} color="#FF3B30" />
-      </View>
+      </View> */}
     </View>
   );
 }
@@ -50,11 +56,11 @@ function AppContent() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
+    backgroundColor: '#fff', 
   },
-  buttonContainer: {
-    margin: 20,
+  crashButtonContainer: {
+    position: 'absolute',
+    bottom: 30,
+    right: 20,
   },
 });
-
-export default App;
