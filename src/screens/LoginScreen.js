@@ -7,6 +7,8 @@ import LogoEntel from '../../assets/images/logoEntel.png'
 // import Entypo from '@expo/vector-icons/Entypo';
 // import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 // import ForgotPasswordModal from '../components/ForgotPasswordModal';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+
 
 const LoginScreen = () => {
   const { signIn } = useContext(AuthContext);
@@ -68,6 +70,7 @@ const LoginScreen = () => {
             {/* <Text style={{ color: "#dbdbdbff" }}>Entel Perú Siente el verdadero Power</Text> */}
           </View>
           <View style={styles.passwordContainer}>
+            <Icon name="lock" size={30} color="#000" />
             <TextInput
               placeholder="DNI"
               placeholderTextColor={"#fff"}
@@ -82,6 +85,7 @@ const LoginScreen = () => {
               keyboardType="numeric"
             />
           </View>
+
           <View style={styles.passwordContainer}>
             {/* <Entypo name="lock" size={24} color="#d6d4d4ff" /> */}
             <TextInput
