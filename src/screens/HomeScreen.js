@@ -57,6 +57,7 @@ const HomeScreen = () => {
             iconName="map"
             title="Mapa"
             description="Ver en mapa."
+            onPress={() => navigation.navigate("Mapa")}
           />
           <MenuCard
             // Icon={MaterialIcons}

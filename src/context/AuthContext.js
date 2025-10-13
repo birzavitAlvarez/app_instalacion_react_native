@@ -35,6 +35,8 @@ export const AuthProvider = ({ children }) => {
                 setUserToken(token);
 
                 const userData = parseJwt(token);
+                console.log("📦 Payload completo del JWT:", userData);
+                console.log("🆔 ID Usuario:", userData?.idUsuario || userData?.id || userData?.sub);
                 setUserInfo(userData);
 
                 if (userData.roles?.length === 1) {
@@ -74,6 +76,7 @@ export const AuthProvider = ({ children }) => {
                 setUserToken(token);
 
                 const userData = parseJwt(token);
+                console.log("🔄 Token refrescado - ID Usuario:", userData?.idUsuario || userData?.id || userData?.sub);
                 setUserInfo(userData);
 
                 return token;
@@ -108,6 +111,7 @@ export const AuthProvider = ({ children }) => {
 
             if (token) {
                 const userData = parseJwt(token);
+                console.log("🔐 Sesión restaurada - ID Usuario:", userData?.idUsuario || userData?.id || userData?.sub);
                 setUserInfo(userData);
 
                 if (!savedRole && userData.roles?.length === 1) {
