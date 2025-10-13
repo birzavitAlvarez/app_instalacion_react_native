@@ -7,6 +7,8 @@ import LogoEntel from '../../assets/images/logoEntel.png'
 // import Entypo from '@expo/vector-icons/Entypo';
 // import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 // import ForgotPasswordModal from '../components/ForgotPasswordModal';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+
 
 const LoginScreen = () => {
   const { signIn } = useContext(AuthContext);
@@ -69,6 +71,7 @@ const LoginScreen = () => {
           </View>
           <View style={styles.passwordContainer}>
             {/* <MaterialIcons name="email" size={24} color="#d6d4d4ff" /> */}
+            <Icon name="lock" size={30} color="#000" />
             <TextInput
               placeholder="Correo"
               placeholderTextColor={"#fff"}

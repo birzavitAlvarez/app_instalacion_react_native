@@ -122,3 +122,10 @@ dependencies {
     implementation 'com.google.firebase:firebase-analytics'
     implementation 'com.google.firebase:firebase-crashlytics'
 }
+
+project.ext.vectoricons = [
+    iconFontNames: [ 'MaterialIcons.ttf', 'Ionicons.ttf', 'FontAwesome.ttf', 'MaterialCommunityIcons.ttf' ]
+]
+
+apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"
+
