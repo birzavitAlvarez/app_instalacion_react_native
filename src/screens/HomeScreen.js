@@ -25,6 +25,7 @@ const HomeScreen = () => {
             iconName="install"
             title="Instalación"
             description="Instala nuevo equipo."
+            onPress={() => navigation.navigate("Instalacion")}
           />
           <MenuCard
             // Icon={AntDesign}

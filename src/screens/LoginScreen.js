@@ -66,29 +66,42 @@ const LoginScreen = () => {
         </View>
         <View style={{ backgroundColor: "#1C1D78" }}>
           <View style={{ alignItems: 'center', marginVertical: 60, }}>
-            <Text style={{ fontSize: 24, fontWeight: 900, color: "#fff", }}>Bienvenido</Text>
-            <Text style={{ color: "#dbdbdbff" }}>Entel Perú Siente el verdadero Power</Text>
+            {/* <Text style={{ fontSize: 24, fontWeight: 900, color: "#fff", }}>Bienvenido</Text> */}
+            {/* <Text style={{ color: "#dbdbdbff" }}>Entel Perú Siente el verdadero Power</Text> */}
           </View>
           <View style={styles.passwordContainer}>
-            {/* <MaterialIcons name="email" size={24} color="#d6d4d4ff" /> */}
             <Icon name="lock" size={30} color="#000" />
             <TextInput
-              placeholder="Correo"
+              placeholder="DNI"
               placeholderTextColor={"#fff"}
               style={styles.passwordInput}
               value={username}
-              onChangeText={setUsername}
+              onChangeText={(text) => {
+                const numericText = text.replace(/[^0-9]/g, '');
+                setUsername(numericText);
+              }}
+              inputMode="numeric"
+              maxLength={8}
+              keyboardType="numeric"
             />
           </View>
+
           <View style={styles.passwordContainer}>
             {/* <Entypo name="lock" size={24} color="#d6d4d4ff" /> */}
             <TextInput
-              placeholder="Contraseña"
+              placeholder="Password"
               placeholderTextColor={"#ffff"}
               style={styles.passwordInput}
               secureTextEntry={!showPassword}
               value={password}
-              onChangeText={setPassword}
+              // onChangeText={setPassword}
+              onChangeText={(text2) => {
+                const numericText2 = text2.replace(/[^0-9]/g, '');
+                setPassword(numericText2);
+              }}
+              inputMode="numeric"
+              maxLength={8}
+              keyboardType="numeric"
             />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
               <Text style={styles.toggle}>
