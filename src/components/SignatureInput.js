@@ -10,19 +10,32 @@ import {
   Dimensions,
   TouchableWithoutFeedback,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import SignaturePad from './SignaturePad';
 import SignatureOptionsModal from './SignatureOptionsModal';
 import { takePhotoCompressed, pickFromGalleryCompressed } from '../utils/imageUtil';
+import { requestCameraPermission, requestGalleryPermission } from '../utils/permissions';
 
 const { width, height } = Dimensions.get('window');
 
-const SignatureInput = forwardRef(({ error, onSignatureChange }, ref) => {
+const SignatureInput = forwardRef(({ error, onSignatureChange, existingSignatureUrl, onUpload, idUsuario, token }, ref) => {
   const [signature, setSignature] = useState(null);
   const [signatureSource, setSignatureSource] = useState(null);
   const [showOptionsModal, setShowOptionsModal] = useState(false);
   const [showDrawModal, setShowDrawModal] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const signaturePadRef = useRef();
+
+  // Determinar si hay una firma (existente o nueva)
+  const hasSignature = signature !== null || (existingSignatureUrl && !imageError);
+
+  React.useEffect(() => {
+    if (existingSignatureUrl) {
+      setImageError(false);
+    }
+  }, [existingSignatureUrl]);
 
   const handleOpenOptions = () => {
     setShowOptionsModal(true);
@@ -35,54 +48,132 @@ const SignatureInput = forwardRef(({ error, onSignatureChange }, ref) => {
 
   const handleTakePhoto = async () => {
     setShowOptionsModal(false);
+    
+    // Solicitar permiso de cámara
+    const hasPermission = await requestCameraPermission();
+    if (!hasPermission) {
+      return;
+    }
+
     try {
+      setUploading(true);
       const result = await takePhotoCompressed();
       if (result) {
-        setSignature({
-          source: 'camera',
-          data: result.base64,
-          bytes: result.bytes,
-          uri: result.uri,
-        });
+        // Subir inmediatamente al servidor si hay callback
+        if (onUpload && idUsuario && token) {
+          const uploadResult = await onUpload(idUsuario, result.uri, token);
+          
+          setSignature({
+            source: 'camera',
+            data: result.base64,
+            bytes: result.bytes,
+            uri: result.uri,
+            uploaded: true,
+            serverResponse: uploadResult,
+          });
+        } else {
+          setSignature({
+            source: 'camera',
+            data: result.base64,
+            bytes: result.bytes,
+            uri: result.uri,
+          });
+        }
         setSignatureSource('camera');
-        onSignatureChange?.({ source: 'camera', data: result.base64 });
+        onSignatureChange?.({ source: 'camera', data: result.base64, uri: result.uri });
       }
-    } catch (error) {
-      Alert.alert('Error', error.message);
+    } catch (err) {
+      console.error('Error en handleTakePhoto:', err);
+      Alert.alert('Error', err.message);
+    } finally {
+      setUploading(false);
     }
   };
 
   const handlePickGallery = async () => {
     setShowOptionsModal(false);
+    
+    // Solicitar permiso de galería
+    const hasPermission = await requestGalleryPermission();
+    if (!hasPermission) {
+      return;
+    }
+
     try {
+      setUploading(true);
       const result = await pickFromGalleryCompressed();
       if (result) {
-        setSignature({
-          source: 'gallery',
-          data: result.base64,
-          bytes: result.bytes,
-          uri: result.uri,
-        });
+        // Subir inmediatamente al servidor si hay callback
+        if (onUpload && idUsuario && token) {
+          const uploadResult = await onUpload(idUsuario, result.uri, token);
+          
+          setSignature({
+            source: 'gallery',
+            data: result.base64,
+            bytes: result.bytes,
+            uri: result.uri,
+            uploaded: true,
+            serverResponse: uploadResult,
+          });
+        } else {
+          setSignature({
+            source: 'gallery',
+            data: result.base64,
+            bytes: result.bytes,
+            uri: result.uri,
+          });
+        }
         setSignatureSource('gallery');
-        onSignatureChange?.({ source: 'gallery', data: result.base64 });
+        onSignatureChange?.({ source: 'gallery', data: result.base64, uri: result.uri });
       }
-    } catch (error) {
-      Alert.alert('Error', error.message);
+    } catch (err) {
+      console.error('Error en handlePickGallery:', err);
+      Alert.alert('Error', err.message);
+    } finally {
+      setUploading(false);
     }
   };
 
-  const handleSaveDrawnSignature = () => {
+  const handleSaveDrawnSignature = async () => {
     if (signaturePadRef.current) {
-      const hasSignature = signaturePadRef.current.hasSignature();
-      if (hasSignature) {
-        const signatureData = signaturePadRef.current.getSignatureData();
-        setSignature({
-          source: 'draw',
-          data: signatureData,
-        });
-        setSignatureSource('draw');
-        setShowDrawModal(false);
-        onSignatureChange?.({ source: 'draw', data: signatureData });
+      const hasDrawnSignature = signaturePadRef.current.hasSignature();
+      if (hasDrawnSignature) {
+        try {
+          setUploading(true);
+          
+          // Capturar firma como JPG comprimido
+          const jpgUri = await signaturePadRef.current.captureAsJPG();
+          
+          // Subir inmediatamente al servidor
+          if (onUpload && idUsuario && token) {
+            const uploadResult = await onUpload(idUsuario, jpgUri, token);
+            
+            setSignature({
+              source: 'draw',
+              uri: jpgUri,
+              uploaded: true,
+              serverResponse: uploadResult,
+            });
+            
+            Alert.alert('Éxito', 'Firma guardada y subida correctamente');
+          } else {
+            // Si no hay callback, solo guardar localmente
+            setSignature({
+              source: 'draw',
+              uri: jpgUri,
+              uploaded: false,
+            });
+          }
+          
+          setSignatureSource('draw');
+          setShowDrawModal(false);
+          onSignatureChange?.({ source: 'draw', uri: jpgUri });
+        } catch (err) {
+          console.error('Error en handleSaveDrawnSignature:', err);
+          Alert.alert('Error', err.message);
+        } finally {
+          setUploading(false);
+        }
       } else {
         Alert.alert('Aviso', 'Por favor dibuje su firma');
       }
@@ -95,28 +186,9 @@ const SignatureInput = forwardRef(({ error, onSignatureChange }, ref) => {
     }
   };
 
-  const handleRemoveSignature = () => {
-    Alert.alert(
-      'Confirmar',
-      '¿Está seguro que desea eliminar la firma?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: () => {
-            setSignature(null);
-            setSignatureSource(null);
-            onSignatureChange?.(null);
-          },
-        },
-      ]
-    );
-  };
-
   useImperativeHandle(ref, () => ({
     getSignature: () => signature,
-    hasSignature: () => signature !== null,
+    hasSignature: () => signature !== null || (existingSignatureUrl && !imageError),
     clearSignature: () => {
       setSignature(null);
       setSignatureSource(null);
@@ -125,29 +197,76 @@ const SignatureInput = forwardRef(({ error, onSignatureChange }, ref) => {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity
-        style={[styles.signatureContainer, error && styles.signatureContainerError]}
-        onPress={signature ? null : handleOpenOptions}
-        activeOpacity={signature ? 1 : 0.7}
-      >
-        {signature ? (
+      {/* Indicador de carga mientras se sube */}
+      {uploading && (
+        <View style={styles.uploadingOverlay}>
+          <ActivityIndicator size="large" color="#1a1a7e" />
+          <Text style={styles.uploadingText}>Subiendo firma...</Text>
+        </View>
+      )}
+      
+      {/* Contenedor de la firma con imagen de fondo si existe */}
+      <View style={[styles.signatureContainer, error && styles.signatureContainerError]}>
+        {/* Mostrar firma existente o nueva firma */}
+        {hasSignature ? (
           <View style={styles.signaturePreview}>
-            {signatureSource === 'draw' ? (
-              <View style={styles.drawnPreview}>
-                <Text style={styles.drawnIcon}>✓</Text>
-                <Text style={styles.drawnText}>Firma capturada</Text>
-                <Text style={styles.drawnSubtext}>Firma dibujada exitosamente</Text>
-              </View>
-            ) : (
-              <Image
-                source={{ uri: signature.data }}
-                style={styles.signatureImage}
-                resizeMode="contain"
-              />
-            )}
+            {/* Iconos pequeños arriba para actualizar */}
+            <View style={styles.updateIconsRow}>
+              <TouchableOpacity 
+                style={[styles.smallIconButton, signatureSource === 'draw' && styles.smallIconButtonActive]}
+                onPress={handleDrawSignature}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.smallIconText}>✏️</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.smallIconButton, (signatureSource === 'camera' || signatureSource === 'gallery') && styles.smallIconButtonActive]}
+                onPress={handleOpenOptions}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.smallIconText}>📷</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Imagen de la firma */}
+            <View style={styles.signatureImageContainer}>
+              {signature ? (
+                // Nueva firma capturada
+                signatureSource === 'draw' ? (
+                  <View style={styles.drawnPreview}>
+                    <Text style={styles.drawnIcon}>✓</Text>
+                    <Text style={styles.drawnText}>Firma actualizada</Text>
+                  </View>
+                ) : (
+                  <Image
+                    source={{ uri: signature.data }}
+                    style={styles.signatureImage}
+                    resizeMode="contain"
+                  />
+                )
+              ) : (
+                // Firma existente de la API
+                <Image
+                  source={{ uri: existingSignatureUrl }}
+                  style={styles.signatureImage}
+                  resizeMode="contain"
+                  onError={() => {
+                    setImageError(true);
+                  }}
+                  onLoad={() => {
+                    setImageError(false);
+                  }}
+                />
+              )}
+            </View>
           </View>
         ) : (
-          <View style={styles.placeholder}>
+          // Sin firma: mostrar iconos grandes para crear
+          <TouchableOpacity 
+            style={styles.placeholder}
+            onPress={handleOpenOptions}
+            activeOpacity={0.7}
+          >
             <View style={styles.iconRow}>
               <View style={styles.iconButton}>
                 <Text style={styles.iconText}>✏️</Text>
@@ -157,15 +276,9 @@ const SignatureInput = forwardRef(({ error, onSignatureChange }, ref) => {
               </View>
             </View>
             <Text style={styles.placeholderText}>Toca para agregar firma</Text>
-          </View>
+          </TouchableOpacity>
         )}
-      </TouchableOpacity>
-
-      {signature && (
-        <TouchableOpacity style={styles.removeButton} onPress={handleRemoveSignature}>
-          <Text style={styles.removeButtonText}>Eliminar firma</Text>
-        </TouchableOpacity>
-      )}
+      </View>
 
       {/* Modal de opciones */}
       <SignatureOptionsModal
@@ -232,13 +345,33 @@ const SignatureInput = forwardRef(({ error, onSignatureChange }, ref) => {
 const styles = StyleSheet.create({
   container: {
     width: '100%',
+    position: 'relative',
+  },
+  uploadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+    borderRadius: 8,
+  },
+  uploadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#1a1a7e',
+    fontWeight: '500',
   },
   signatureContainer: {
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
     backgroundColor: '#fff',
-    minHeight: 200,
+    height: 150,
+    maxHeight: 150,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -247,6 +380,9 @@ const styles = StyleSheet.create({
     borderColor: '#ff4444',
   },
   placeholder: {
+    flex: 1,
+    width: '100%',
+    height: 150,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -272,9 +408,46 @@ const styles = StyleSheet.create({
   },
   signaturePreview: {
     width: '100%',
-    height: 200,
+    height: 150,
+    maxHeight: 150,
+    position: 'relative',
+  },
+  updateIconsRow: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    flexDirection: 'row',
+    zIndex: 10,
+    gap: 8,
+  },
+  smallIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  smallIconButtonActive: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  smallIconText: {
+    fontSize: 20,
+  },
+  signatureImageContainer: {
+    width: '100%',
+    height: 150,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 12,
   },
   signatureImage: {
     width: '100%',
@@ -284,32 +457,19 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    width: '100%',
   },
   drawnIcon: {
-    fontSize: 60,
+    fontSize: 48,
     color: '#4CAF50',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   drawnText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 4,
-  },
-  drawnSubtext: {
-    fontSize: 14,
-    color: '#666',
-  },
-  removeButton: {
-    marginTop: 8,
-    alignSelf: 'center',
-  },
-  removeButtonText: {
-    color: '#ff4444',
-    fontSize: 14,
   },
 
-  // Estilos del modal tipo diálogo
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',

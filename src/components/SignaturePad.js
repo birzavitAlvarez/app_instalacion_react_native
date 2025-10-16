@@ -1,11 +1,13 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import ViewShot from 'react-native-view-shot';
 
 const SignaturePad = React.forwardRef((props, ref) => {
   const [completedPaths, setCompletedPaths] = useState([]);
   const [currentPath, setCurrentPath] = useState([]);
   const [isDrawing, setIsDrawing] = useState(false);
+  const viewShotRef = useRef(null);
 
   const isValidPoint = useCallback((x, y) => {
     return x >= 0 && y >= 0 && x <= 2000 && y <= 1000 && !isNaN(x) && !isNaN(y);
@@ -103,6 +105,18 @@ const SignaturePad = React.forwardRef((props, ref) => {
         ? [...completedPaths, currentPath]
         : completedPaths
     }),
+    captureAsJPG: async () => {
+      if (!viewShotRef.current) {
+        throw new Error('ViewShot ref no disponible');
+      }
+      try {
+        const uri = await viewShotRef.current.capture();
+        return uri;
+      } catch (error) {
+        console.error('Error capturando firma:', error);
+        throw error;
+      }
+    },
   }), [saveSignature, clearSignature, hasSignature, currentPath, completedPaths]);
 
   const currentPathSVG = useMemo(() => 
@@ -113,45 +127,60 @@ const SignaturePad = React.forwardRef((props, ref) => {
   const showPlaceholder = completedPaths.length === 0 && currentPath.length === 0;
 
   return (
-    <View 
-      style={styles.container}
-      onStartShouldSetResponder={() => true}
-      onMoveShouldSetResponder={() => true}
-      onResponderGrant={handleTouchStart}
-      onResponderMove={handleTouchMove}
-      onResponderRelease={handleTouchEnd}
-      onResponderTerminate={handleTouchEnd}
-    >
-      <Svg width="100%" height="100%">
-        {completedPaths.map((pathPoints, idx) => (
-          <Path
-            key={idx}
-            d={pointsToSVGPath(pathPoints)}
-            stroke="#000"
-            strokeWidth={3}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
-          />
-        ))}
-        
-        {currentPath.length > 0 && (
-          <Path
-            d={currentPathSVG}
-            stroke="#000"
-            strokeWidth={3}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
-          />
-        )}
-      </Svg>
-      
-      {showPlaceholder && (
-        <View style={styles.placeholder} pointerEvents="none">
-          <View style={styles.placeholderLine} />
+    <View style={styles.container}>
+      <ViewShot 
+        ref={viewShotRef}
+        options={{ 
+          format: 'jpg', 
+          quality: 0.8,
+          result: 'tmpfile'
+        }}
+        style={styles.captureArea}
+      >
+        <View style={styles.canvasContainer}>
+          <Svg width="100%" height="100%">
+            {completedPaths.map((pathPoints, idx) => (
+              <Path
+                key={idx}
+                d={pointsToSVGPath(pathPoints)}
+                stroke="#000"
+                strokeWidth={3}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
+            ))}
+            
+            {currentPath.length > 0 && (
+              <Path
+                d={currentPathSVG}
+                stroke="#000"
+                strokeWidth={3}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
+            )}
+          </Svg>
+          
+          {showPlaceholder && (
+            <View style={styles.placeholder} pointerEvents="none">
+              <View style={styles.placeholderLine} />
+            </View>
+          )}
         </View>
-      )}
+      </ViewShot>
+      
+      {/* Capa transparente para capturar toques sobre ViewShot */}
+      <View 
+        style={styles.touchLayer}
+        onStartShouldSetResponder={() => true}
+        onMoveShouldSetResponder={() => true}
+        onResponderGrant={handleTouchStart}
+        onResponderMove={handleTouchMove}
+        onResponderRelease={handleTouchEnd}
+        onResponderTerminate={handleTouchEnd}
+      />
     </View>
   );
 });
@@ -161,12 +190,29 @@ SignaturePad.displayName = 'SignaturePad';
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    height: 300, // Más alto para el modal
+    height: 300,
     backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#d0d0d0',
     borderRadius: 12,
     overflow: 'hidden',
+    position: 'relative',
+  },
+  captureArea: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#fff',
+  },
+  canvasContainer: {
+    flex: 1,
+  },
+  touchLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
   },
   placeholder: {
     position: 'absolute',

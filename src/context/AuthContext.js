@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BASE_URL } from '../config/api';
+import { AUTH_ENDPOINTS } from '../config/api';
 import { parseJwt } from '../utils/jwt';
 export const AuthContext = createContext();
 
@@ -13,7 +13,7 @@ export const AuthProvider = ({ children }) => {
 
     const signIn = async ({ username, password }) => {
         try {
-            const response = await fetch(`${BASE_URL}/auth/authenticate`, {
+            const response = await fetch(AUTH_ENDPOINTS.AUTHENTICATE, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -60,7 +60,7 @@ export const AuthProvider = ({ children }) => {
             const refreshToken = await AsyncStorage.getItem('refreshToken');
             if (!refreshToken) throw new Error("No hay refresh token");
 
-            const response = await fetch(`${BASE_URL}/auth/refresh-token`, {
+            const response = await fetch(AUTH_ENDPOINTS.REFRESH_TOKEN, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
