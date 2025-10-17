@@ -2,9 +2,7 @@ import React from 'react';
 import {
   StatusBar,
   StyleSheet,
-  useColorScheme,
   View,
-  Button
 } from 'react-native';
 import {
   SafeAreaProvider,
@@ -16,9 +14,45 @@ import {
 } from 'react-native-paper';
 import { NavigationContainer, DefaultTheme as NavigationDefaultTheme } from '@react-navigation/native';
 import { AuthProvider } from './src/context/AuthContext';
+import { LocationProvider } from './src/context/LocationContext';
 import RootNavigator from './src/navigations/RootNavigator';
 import { navigationRef } from './src/services/NavigationService';
-import crashlytics from '@react-native-firebase/crashlytics';
+import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
+
+const toastConfig = {
+  success: (props: any) => (
+    <BaseToast
+      {...props}
+      style={{ borderLeftColor: '#27ae60', backgroundColor: '#fff' }}
+      contentContainerStyle={{ paddingHorizontal: 15 }}
+      text1Style={{
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#000',
+      }}
+      text2Style={{
+        fontSize: 13,
+        color: '#666',
+      }}
+    />
+  ),
+  error: (props: any) => (
+    <ErrorToast
+      {...props}
+      style={{ borderLeftColor: '#e74c3c', backgroundColor: '#fff' }}
+      contentContainerStyle={{ paddingHorizontal: 15 }}
+      text1Style={{
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#000',
+      }}
+      text2Style={{
+        fontSize: 13,
+        color: '#666',
+      }}
+    />
+  ),
+};
 
 export default function App() {
   return (
@@ -28,10 +62,13 @@ export default function App() {
       <PaperProvider theme={DefaultTheme}>
         <NavigationContainer theme={NavigationDefaultTheme} ref={navigationRef}>
           <AuthProvider>
-            <AppContent />
+            <LocationProvider>
+              <AppContent />
+            </LocationProvider>
           </AuthProvider>
         </NavigationContainer>
       </PaperProvider>
+      <Toast config={toastConfig} />
     </SafeAreaProvider>
   );
 }
@@ -39,16 +76,9 @@ export default function App() {
 function AppContent() {
   const safeAreaInsets = useSafeAreaInsets();
 
-  const handleCrash = () => {
-    crashlytics().crash();
-  };
-
   return (
     <View style={[styles.container, { paddingTop: safeAreaInsets.top }]}>
       <RootNavigator />
-      {/* <View style={styles.crashButtonContainer}>
-        <Button title="Forzar Crash" onPress={handleCrash} color="#FF3B30" />
-      </View> */}
     </View>
   );
 }

@@ -109,3 +109,16 @@ export function normalizeBase64FromBackend(value) {
   if (value.startsWith('data:')) return value;
   return `data:image/jpeg;base64,${value}`;
 }
+
+/**
+ * Convierte una imagen URI a Base64
+ */
+export async function convertImageToBase64(uri) {
+  try {
+    const base64 = await FileSystem.readFile(uri, 'base64');
+    return `data:image/jpeg;base64,${base64}`;
+  } catch (error) {
+    console.error('Error convirtiendo imagen a Base64:', error);
+    throw error;
+  }
+}
