@@ -18,6 +18,7 @@ import VistaPrevia from '../components/VistaPrevia';
 import BarcodeScanner from '../components/BarcodeScanner';
 import ValidationModal from '../components/ValidationModal';
 import ConfirmationModal from '../components/ConfirmationModal';
+import VoiceInput from '../components/VoiceInput';
 import { takePhotoCompressed } from '../utils/imageUtil';
 import { requestCameraPermission } from '../utils/permissions';
 import { LocationContext } from '../context/LocationContext';
@@ -95,6 +96,9 @@ const NuevaInstalacionScreen = ({ navigation }) => {
   const [showValidationModal, setShowValidationModal] = useState(false);
   const [validationData, setValidationData] = useState(null);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [showVoiceInput, setShowVoiceInput] = useState(false);
+  const [currentVoiceField, setCurrentVoiceField] = useState(null);
+  const [currentVoiceFieldLabel, setCurrentVoiceFieldLabel] = useState('');
   const [loading, setLoading] = useState(false);
 
   // Manejar cambio de campo - Paso 1
@@ -118,14 +122,63 @@ const NuevaInstalacionScreen = ({ navigation }) => {
   };
 
   // Manejar entrada por voz
-  const handleVoiceInput = (fieldName) => {
+  const handleVoiceInput = (fieldName, fieldLabel = '') => {
+    console.log('🎤 Iniciando entrada por voz para:', fieldName, fieldLabel);
+    
+    // Determinar el paso actual para actualizar el formData correcto
+    let voiceField = fieldName;
+    let voiceLabel = fieldLabel || fieldName;
+    
+    // Para paso 1 (DatosGenerales)
+    if (currentStep === 1) {
+      setCurrentVoiceField(fieldName);
+      setCurrentVoiceFieldLabel(voiceLabel);
+      setShowVoiceInput(true);
+    }
+    // Para paso 3 (Observaciones)
+    else if (currentStep === 3) {
+      setCurrentVoiceField(fieldName);
+      setCurrentVoiceFieldLabel(voiceLabel);
+      setShowVoiceInput(true);
+    }
+    // Para paso 4 (FirmaCliente)
+    else if (currentStep === 4) {
+      setCurrentVoiceField(fieldName);
+      setCurrentVoiceFieldLabel(voiceLabel);
+      setShowVoiceInput(true);
+    }
+  };
+
+  // Manejar resultado de voz
+  const handleVoiceResult = (text) => {
+    console.log('🎤 Texto de voz recibido:', text);
+    console.log('🎤 Campo destino:', currentVoiceField);
+    console.log('🎤 Paso actual:', currentStep);
+    
+    // Actualizar el formData según el paso actual
+    if (currentStep === 1 && currentVoiceField) {
+      setFormDataStep1({ ...formDataStep1, [currentVoiceField]: text });
+      console.log('✅ FormDataStep1 actualizado con voz');
+    } else if (currentStep === 3 && currentVoiceField) {
+      setFormDataStep3({ ...formDataStep3, [currentVoiceField]: text });
+      console.log('✅ FormDataStep3 actualizado con voz');
+    } else if (currentStep === 4 && currentVoiceField) {
+      setFormDataStep4({ ...formDataStep4, [currentVoiceField]: text });
+      console.log('✅ FormDataStep4 actualizado con voz');
+    }
+    
+    // Mostrar toast de confirmación
     Toast.show({
-      type: 'info',
-      text1: 'Entrada por voz',
-      text2: `Campo: ${fieldName}`,
+      type: 'success',
+      text1: 'Texto reconocido',
+      text2: text,
       position: 'bottom',
+      visibilityTime: 2000,
     });
-    // TODO: Implementar reconocimiento de voz
+    
+    // Resetear estados
+    setCurrentVoiceField(null);
+    setCurrentVoiceFieldLabel('');
   };
 
   // Manejar cambio de firma
@@ -627,6 +680,18 @@ const NuevaInstalacionScreen = ({ navigation }) => {
         onClose={() => setShowConfirmationModal(false)}
         onConfirm={handleFinish}
         title="¿Estás seguro que deseas finalizar?"
+      />
+
+      {/* Modal de Entrada por Voz */}
+      <VoiceInput
+        visible={showVoiceInput}
+        onClose={() => {
+          setShowVoiceInput(false);
+          setCurrentVoiceField(null);
+          setCurrentVoiceFieldLabel('');
+        }}
+        onResult={handleVoiceResult}
+        fieldLabel={currentVoiceFieldLabel}
       />
     </ScrollView>
   );

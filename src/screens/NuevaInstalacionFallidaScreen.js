@@ -15,6 +15,7 @@ import { useLocation } from '../hooks/useLocation';
 import SignatureInput from '../components/SignatureInput';
 import EnhancedInput from '../components/EnhancedInput';
 import BarcodeScanner from '../components/BarcodeScanner';
+import VoiceInput from '../components/VoiceInput';
 import { takePhotoCompressed, pickFromGalleryCompressed, convertImageToBase64 } from '../utils/imageUtil';
 import { requestCameraPermission, requestGalleryPermission } from '../utils/permissions';
 
@@ -45,6 +46,11 @@ const NuevaInstalacionFallidaScreen = () => {
   const [dni, setDni] = useState('');
   const [loading, setLoading] = useState(false);
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
+
+  // Estados para entrada por voz
+  const [showVoiceInput, setShowVoiceInput] = useState(false);
+  const [currentVoiceField, setCurrentVoiceField] = useState(null);
+  const [currentVoiceFieldLabel, setCurrentVoiceFieldLabel] = useState('');
 
   // Ubicación GPS
   const { latitude, longitude, isLoading: locationLoading, error: locationError, getCurrentLocation } = useLocation();
@@ -86,15 +92,48 @@ const NuevaInstalacionFallidaScreen = () => {
   };
 
   // Manejar entrada por voz
-  const handleVoiceInput = () => {
+  const handleVoiceInput = (field, label) => {
+    console.log('🎤 Abriendo modal de voz para campo:', field, 'con label:', label);
+    setCurrentVoiceField(field);
+    setCurrentVoiceFieldLabel(label);
+    setShowVoiceInput(true);
+  };
+
+  // Manejar resultado de voz
+  const handleVoiceResult = (text) => {
+    console.log('🎤 Texto de voz recibido:', text, 'para campo:', currentVoiceField);
+    
+    // Actualizar el campo correspondiente según el nombre del campo
+    switch (currentVoiceField) {
+      case 'codigoNevera':
+        setCodigoNevera(text);
+        break;
+      case 'observacion':
+        setObservacion(text);
+        break;
+      case 'nombreApellidos':
+        setNombreApellidos(text);
+        break;
+      case 'dni':
+        setDni(text);
+        break;
+      default:
+        console.warn('⚠️ Campo desconocido:', currentVoiceField);
+    }
+
+    // Mostrar toast de confirmación
     Toast.show({
-      type: 'info',
-      text1: 'Entrada por voz',
-      text2: 'Función en desarrollo',
+      type: 'success',
+      text1: 'Texto reconocido',
+      text2: text,
       position: 'bottom',
+      visibilityTime: 2000,
     });
-    // TODO: Implementar reconocimiento de voz
-    // Librería sugerida: @react-native-voice/voice
+
+    // Limpiar estados
+    setShowVoiceInput(false);
+    setCurrentVoiceField(null);
+    setCurrentVoiceFieldLabel('');
   };
 
   // Confirmar ubicación
@@ -342,7 +381,7 @@ const NuevaInstalacionFallidaScreen = () => {
           showBarcode={true}
           showMicrophone={true}
           onBarcodePress={handleBarcodeScan}
-          onMicrophonePress={handleVoiceInput}
+          onMicrophonePress={() => handleVoiceInput('codigoNevera', 'Código de Nevera')}
         />
       </View>
 
@@ -402,7 +441,7 @@ const NuevaInstalacionFallidaScreen = () => {
           placeholder="Escriba su observación aquí"
           keyboardType="default"
           showMicrophone={true}
-          onMicrophonePress={handleVoiceInput}
+          onMicrophonePress={() => handleVoiceInput('observacion', 'Observación')}
           multiline={true}
           numberOfLines={4}
         />
@@ -451,7 +490,7 @@ const NuevaInstalacionFallidaScreen = () => {
           placeholder="Nombres y Apellidos"
           keyboardType="default"
           showMicrophone={true}
-          onMicrophonePress={handleVoiceInput}
+          onMicrophonePress={() => handleVoiceInput('nombreApellidos', 'Nombres y Apellidos')}
         />
       </View>
 
@@ -487,6 +526,19 @@ const NuevaInstalacionFallidaScreen = () => {
           onClose={() => setShowBarcodeScanner(false)}
         />
       </Modal>
+
+      {/* Modal de Entrada por Voz */}
+      <VoiceInput
+        visible={showVoiceInput}
+        onClose={() => {
+          setShowVoiceInput(false);
+          setCurrentVoiceField(null);
+          setCurrentVoiceFieldLabel('');
+        }}
+        onResult={handleVoiceResult}
+        fieldLabel={currentVoiceFieldLabel}
+        removeSpaces={true}
+      />
     </ScrollView>
   );
 };

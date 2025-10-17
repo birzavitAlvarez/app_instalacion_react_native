@@ -133,3 +133,59 @@ export const checkGalleryPermission = async () => {
   }
   return true;
 };
+
+/**
+ * Solicita permisos de micrófono en Android para reconocimiento de voz
+ * En iOS los permisos se manejan automáticamente al usar el micrófono
+ */
+export const requestMicrophonePermission = async () => {
+  if (Platform.OS === 'android') {
+    try {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        {
+          title: 'Permiso de Micrófono',
+          message: 'La aplicación necesita acceso al micrófono para el reconocimiento de voz',
+          buttonNeutral: 'Preguntar después',
+          buttonNegative: 'Cancelar',
+          buttonPositive: 'Aceptar',
+        }
+      );
+
+      if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+        console.log('✅ Permiso de micrófono concedido');
+        return true;
+      } else {
+        console.log('❌ Permiso de micrófono denegado');
+        Alert.alert(
+          'Permiso denegado',
+          'Necesitas habilitar el permiso de micrófono en la configuración para usar el reconocimiento de voz'
+        );
+        return false;
+      }
+    } catch (err) {
+      console.warn('⚠️ Error al solicitar permiso de micrófono:', err);
+      return false;
+    }
+  }
+  // En iOS, retornar true (se maneja automáticamente)
+  return true;
+};
+
+/**
+ * Verifica si el permiso de micrófono está concedido
+ */
+export const checkMicrophonePermission = async () => {
+  if (Platform.OS === 'android') {
+    try {
+      const result = await PermissionsAndroid.check(
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO
+      );
+      return result;
+    } catch (err) {
+      console.warn('Error al verificar permiso de micrófono:', err);
+      return false;
+    }
+  }
+  return true;
+};

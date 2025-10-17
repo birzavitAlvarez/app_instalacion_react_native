@@ -18,6 +18,8 @@ class MainApplication : Application(), ReactApplication {
             PackageList(this).packages.apply {
               // Packages that cannot be autolinked yet can be added manually here, for example:
               // add(MyReactNativePackage())
+              add(VoiceRecognitionPackage())
+              add(GoogleVoicePackage()) // Dictado de Google (mejor para pausas largas)
             }
 
         override fun getJSMainModuleName(): String = "index"
