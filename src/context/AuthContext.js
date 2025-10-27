@@ -111,7 +111,6 @@ export const AuthProvider = ({ children }) => {
 
             if (token) {
                 const userData = parseJwt(token);
-                console.log("🔐 Sesión restaurada - ID Usuario:", userData?.idUsuario || userData?.id || userData?.sub);
                 setUserInfo(userData);
 
                 if (!savedRole && userData.roles?.length === 1) {

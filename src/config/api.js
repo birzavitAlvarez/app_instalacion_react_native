@@ -23,3 +23,12 @@ export const INSTALACIONES_ENDPOINTS = {
 
 
 // PANTALLA PERFIL
+
+
+// Endpoints de historial de instalaciones
+export const HISTORIAL_ENDPOINTS = {
+  INSTALACIONES_EFECTIVAS: (idUsuario) =>
+    `${BASE_URL}/instalaciones/usuario/${idUsuario}`,
+  INSTALACIONES_FALLIDAS: (idUsuario) =>
+    `${BASE_URL}/instalaciones-fallidas/usuario/${idUsuario}`,
+};
