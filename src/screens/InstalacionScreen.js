@@ -8,13 +8,11 @@ const InstalacionScreen = () => {
 
     return (
         <View style={styles.container}>
-            {/* Header igual al HomeScreen */}
             <View style={styles.header}>
                 <Text style={styles.greeting}>Instalación,</Text>
                 <Text style={styles.question}>¿Qué deseas hacer?</Text>
             </View>
 
-            {/* Contenedor principal */}
             <View style={styles.content}>
                 <View style={styles.row}>
                     <MenuCard
