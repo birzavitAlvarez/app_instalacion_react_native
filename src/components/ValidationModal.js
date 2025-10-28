@@ -1,18 +1,20 @@
 import React from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, TouchableWithoutFeedback } from 'react-native';
 
 const ValidationModal = ({ visible, onClose, validationData }) => {
+  if (!validationData) return null;
+
   const {
     conexion,
     coordenadas,
     ubicacion,
     senalGPS,
     senalCelular,
-    conectado,
-    desconectado,
-    sinEvento,
+    ultimasAlertas = {},
     sincronizado,
-  } = validationData || {};
+  } = validationData;
+
+  const { conectado, desconectado } = ultimasAlertas;
 
   return (
     <Modal
@@ -21,8 +23,13 @@ const ValidationModal = ({ visible, onClose, validationData }) => {
       animationType="fade"
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
-        <View style={styles.modalContainer}>
+      <TouchableOpacity 
+        style={styles.overlay}
+        activeOpacity={1}
+        onPress={onClose}
+      >
+        <TouchableWithoutFeedback>
+          <View style={styles.modalContainer}>
           {/* Título de Conexión */}
           <View style={styles.row}>
             <Text style={styles.label}>Conexión:</Text>
@@ -32,7 +39,7 @@ const ValidationModal = ({ visible, onClose, validationData }) => {
           {/* Coordenadas */}
           <View style={styles.row}>
             <Text style={styles.label}>Coordenadas:</Text>
-            <Text style={styles.value}>{coordenadas || 'N/A'}</Text>
+            <Text style={styles.valueSmall}>{coordenadas || 'N/A'}</Text>
           </View>
 
           {/* Ubicación */}
@@ -44,25 +51,23 @@ const ValidationModal = ({ visible, onClose, validationData }) => {
           {/* Señal GPS */}
           <View style={styles.row}>
             <Text style={styles.label}>Señal GPS:</Text>
-            <Text style={styles.value}>{senalGPS || '0'}</Text>
+            <Text style={styles.value}>{senalGPS !== undefined ? senalGPS : '0'}</Text>
           </View>
 
           {/* Señal Celular */}
           <View style={styles.row}>
             <Text style={styles.label}>Señal Celular:</Text>
-            <Text style={styles.value}>{senalCelular || '0.0'}</Text>
+            <Text style={styles.value}>{senalCelular !== undefined ? senalCelular : '0.0'}</Text>
           </View>
 
           {/* Últimas Alertas */}
           <Text style={styles.sectionTitle}>Últimas Alertas</Text>
 
           {/* Conectado */}
-          {conectado && (
-            <View style={styles.row}>
-              <Text style={styles.label}>Conectado:</Text>
-              <Text style={styles.value}>{conectado}</Text>
-            </View>
-          )}
+          <View style={styles.row}>
+            <Text style={styles.label}>Conectado:</Text>
+            <Text style={styles.value}>{conectado || 'N/A'}</Text>
+          </View>
 
           {/* Desconectado */}
           <View style={styles.row}>
@@ -70,28 +75,23 @@ const ValidationModal = ({ visible, onClose, validationData }) => {
             <Text style={styles.value}>{desconectado || 'N/A'}</Text>
           </View>
 
-          {/* Sin Evento */}
-          {sinEvento !== undefined && (
-            <View style={styles.row}>
-              <Text style={styles.label}>Sin Evento:</Text>
-              <Text style={styles.value}>{sinEvento ? 'Sí' : 'No'}</Text>
-            </View>
-          )}
-
           {/* Botón de Estado */}
           <TouchableOpacity
             style={[
               styles.statusButton,
               sincronizado ? styles.statusButtonSync : styles.statusButtonNoSync,
             ]}
-            onPress={onClose}
+            onPress={sincronizado ? onClose : undefined}
+            disabled={!sincronizado}
+            activeOpacity={sincronizado ? 0.7 : 1}
           >
             <Text style={styles.statusButtonText}>
               {sincronizado ? 'SINCRONIZADO' : 'NO SINCRONIZADO'}
             </Text>
           </TouchableOpacity>
-        </View>
-      </View>
+          </View>
+        </TouchableWithoutFeedback>
+      </TouchableOpacity>
     </Modal>
   );
 };
@@ -114,16 +114,26 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    alignItems: 'flex-start',
+    marginBottom: 10,
   },
   label: {
     fontSize: 14,
     fontWeight: '600',
     color: '#000',
+    flex: 1,
   },
   value: {
     fontSize: 14,
     color: '#333',
+    flex: 1,
+    textAlign: 'right',
+  },
+  valueSmall: {
+    fontSize: 12,
+    color: '#333',
+    flex: 1,
+    textAlign: 'right',
   },
   sectionTitle: {
     fontSize: 16,
@@ -135,7 +145,7 @@ const styles = StyleSheet.create({
   },
   statusButton: {
     marginTop: 20,
-    padding: 12,
+    padding: 14,
     borderRadius: 8,
     alignItems: 'center',
   },

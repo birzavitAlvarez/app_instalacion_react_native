@@ -1,19 +1,33 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import Geolocation from '@react-native-community/geolocation';
-import { PermissionsAndroid, Platform, AppState, Alert } from 'react-native';
+import { PermissionsAndroid, Platform, AppState } from 'react-native';
 
 export const LocationContext = createContext();
 
 export const LocationProvider = ({ children }) => {
   const [location, setLocation] = useState(null);
   const [error, setError] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [watchId, setWatchId] = useState(null);
+  const [permissionGranted, setPermissionGranted] = useState(false);
+  const [permissionChecked, setPermissionChecked] = useState(false);
 
   // Solicitar permisos de ubicación
   const requestPermission = useCallback(async () => {
+    if (permissionChecked) {
+      return permissionGranted;
+    }
+    
     if (Platform.OS === 'android') {
       try {
+        // Verificar que el contexto de Android esté disponible
+        if (!PermissionsAndroid) {
+          console.warn('PermissionsAndroid no disponible');
+          setPermissionChecked(true);
+          setPermissionGranted(false);
+          return false;
+        }
+        
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
           {
@@ -24,29 +38,47 @@ export const LocationProvider = ({ children }) => {
           }
         );
         
-        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-          return true;
+        const hasPermission = granted === PermissionsAndroid.RESULTS.GRANTED;
+        
+        if (hasPermission) {
+          console.log('✅ Permiso de ubicación concedido');
         } else {
+          console.log('❌ Permiso de ubicación denegado');
           setError('Permiso de ubicación denegado');
-          setIsLoading(false);
-          Alert.alert(
-            'Permiso Requerido',
-            'Se necesita acceso a la ubicación para usar esta función. Por favor, habilita el permiso en la configuración de la app.'
-          );
-          return false;
         }
+        
+        setPermissionChecked(true);
+        setPermissionGranted(hasPermission);
+        setIsLoading(false);
+        return hasPermission;
       } catch (err) {
-        console.error('Error solicitando permiso:', err);
+        console.error('❌ Error solicitando permiso:', err);
         setError('Error al solicitar permisos');
+        setPermissionChecked(true);
+        setPermissionGranted(false);
         setIsLoading(false);
         return false;
       }
     }
-    return true; // iOS maneja permisos automáticamente
-  }, []);
+    
+    // iOS maneja permisos automáticamente
+    setPermissionChecked(true);
+    setPermissionGranted(true);
+    return true;
+  }, [permissionChecked, permissionGranted]);
 
   // Obtener ubicación actual de forma inmediata
-  const getCurrentLocation = useCallback(() => {
+  const getCurrentLocation = useCallback(async () => {
+    // Solicitar permisos si aún no se han verificado
+    if (!permissionChecked) {
+      const hasPermission = await requestPermission();
+      if (!hasPermission) {
+        throw new Error('Permiso de ubicación denegado');
+      }
+    } else if (!permissionGranted) {
+      throw new Error('Permiso de ubicación denegado');
+    }
+    
     setIsLoading(true);
     return new Promise((resolve, reject) => {
       Geolocation.getCurrentPosition(
@@ -74,7 +106,7 @@ export const LocationProvider = ({ children }) => {
         }
       );
     });
-  }, []);
+  }, [permissionChecked, permissionGranted, requestPermission]);
 
   // Iniciar tracking de ubicación
   const startTracking = useCallback(() => {
@@ -112,36 +144,12 @@ export const LocationProvider = ({ children }) => {
     }
   }, [watchId]);
 
-  // Inicializar al montar
+  // Limpiar tracking al desmontar
   useEffect(() => {
-    const init = async () => {
-      const hasPermission = await requestPermission();
-      if (hasPermission) {
-        // Primero obtener ubicación inmediata
-        try {
-          await getCurrentLocation();
-          // Luego iniciar tracking
-          startTracking();
-        } catch (err) {
-          console.error('Error obteniendo ubicación inicial:', err);
-          // Intentar tracking aunque falle la primera
-          startTracking();
-        }
-      } else {
-        setError('Permiso de ubicación denegado');
-        setIsLoading(false);
-        Alert.alert(
-          'Permiso Requerido',
-          'Se necesita acceso a la ubicación para usar esta función'
-        );
-      }
-    };
-    init();
-    
     return () => {
       stopTracking();
     };
-  }, []); // Solo ejecutar una vez al montar
+  }, [stopTracking]);
 
   // Manejar cambios de estado de la app
   useEffect(() => {
