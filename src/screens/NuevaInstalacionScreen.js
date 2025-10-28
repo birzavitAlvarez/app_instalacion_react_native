@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Modal,
   ActivityIndicator,
+  LogBox,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -22,14 +23,32 @@ import VoiceInput from '../components/VoiceInput';
 import { takePhotoCompressed } from '../utils/imageUtil';
 import { requestCameraPermission } from '../utils/permissions';
 import { LocationContext } from '../context/LocationContext';
-import { formatDateTime } from '../services/HourDate';
+import { getDataByCodNevera, validateNeveraStatus, validateTechnicianSync } from '../services/neveraService';
+import { uploadImageToServer } from '../services/uploadService';
+
+// Suprimir warning de VirtualizedList en ScrollView
+LogBox.ignoreLogs([
+  'VirtualizedLists should never be nested',
+]);
 
 const NuevaInstalacionScreen = ({ navigation }) => {
+  // Función helper para formatear fecha en formato YYYY-MM-DD HH:MM:SS
+  const formatDateTime = (date) => {
+    const d = new Date(date);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mi = String(d.getMinutes()).padStart(2, '0');
+    const ss = String(d.getSeconds()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+  };
+
   // Obtener ubicación desde el contexto
   const { location, getCurrentLocation } = useContext(LocationContext);
 
   // Control de pasos (1-5: Datos Generales, Funcionamiento Equipo, Observaciones, Firma Cliente, Vista Previa)
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(4);
 
   // Estado del formulario - Paso 1
   const [formDataStep1, setFormDataStep1] = useState({
@@ -101,10 +120,164 @@ const NuevaInstalacionScreen = ({ navigation }) => {
   const [currentVoiceFieldLabel, setCurrentVoiceFieldLabel] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Persistencia de datos de instalación
+  const [instalacionData, setInstalacionData] = useState({
+    // Datos generales
+    codigo: '',
+    modelo: '',
+    distribuidor: '',
+    clienteNombres: '',
+    rucDni: '',
+    departamento: '',
+    provincia: '',
+    distrito: '',
+    direccion: '',
+    iccidChip: '',
+    imeiDispositivo: '',
+    otro: '',
+    
+    // Inspección previa
+    iprevNeveraEnergizada: 'NO',
+    iprevCompresorEnciende: 'NO',
+    iprevTermostatoOp: 'NO',
+    iprevEstaCableElec: 'NO',
+    iprevComentario: '',
+    iprevFoto: '',
+    iprevFotoPath: '',
+    
+    // Coordenadas
+    latitud: '',
+    longitud: '',
+    
+    // Fotos de instalación
+    fotoDispInstaCajaMetalicaAbierta: '',
+    fotoDispInstaCajaMetalicaAbiertaPath: '',
+    fotoEmpalmeCable: '',
+    fotoEmpalmeCablePath: '',
+    fotoDispInstaCajaMetalicaCerrada: '',
+    fotoDispInstaCajaMetalicaCerradaPath: '',
+    fotoFachadaNevera: '',
+    fotoFachadeNeveraPath: '',
+    
+    // Datos de validación
+    transmisionRedCelular: null,
+    alertaDesconexion: null,
+    alertaReconexion: null,
+    transmisionGps: null,
+    
+    // Inspección posterior
+    cierreRejilla: 'NO',
+    ipostNeveraEnergizada: 'NO',
+    ipostCompresorEnciende: 'NO',
+    ipostTermostatoOp: 'NO',
+    ipostEstaCableElec: 'NO',
+    
+    // Observaciones
+    observacion1: '',
+    fotoObservacion1: '',
+    fotoObservacion1Path: '',
+    observacion2: '',
+    fotoObservacion2: '',
+    fotoObservacion2Path: '',
+    
+    // Firma del técnico (Step 4)
+    tecnicoFirma: null,
+    tecnicoFirmaPath: null,
+    tecnicoNombreApellido: null,
+    tecnicoDni: null,
+    
+    // Firma del cliente
+    clienteRespFirma: '',
+    clienteRespFirmaPath: '',
+    clienteRespNombreApellido: '',
+    clienteRespDni: '',
+
+    idNevera: null,
+    idCliente: null,
+    idUsuario: null,
+
+    // PDF
+    pdfPath: '',
+  });
+
+  // Función helper para convertir boolean a "SI"/"NO"
+  const booleanToSiNo = (value) => {
+    return value ? 'SI' : 'NO';
+  };
+
   // Manejar cambio de campo - Paso 1
   const handleChangeFieldStep1 = (fieldName, value) => {
     setFormDataStep1({ ...formDataStep1, [fieldName]: value });
   };
+
+  // Manejar actualización del ICCID desde el autocompletado de IMEI
+  const handleIccidUpdate = (iccidValue) => {
+    console.log('📝 Actualizando ICCID desde IMEI:', iccidValue);
+    setFormDataStep1({ ...formDataStep1, iccidChip: iccidValue });
+  };
+
+  // Autocompletar datos cuando el código de nevera tiene >= 10 caracteres
+  useEffect(() => {
+    const fetchNeveraData = async () => {
+      const codigoNevera = formDataStep1.codigoNevera.trim();
+      
+      // Solo consultar si tiene EXACTAMENTE 10 o más caracteres y no está vacío
+      if (codigoNevera.length >= 10) {
+        setLoading(true);
+        
+        try {
+          console.log('🔍 Consultando datos para código:', codigoNevera);
+          const data = await getDataByCodNevera(codigoNevera);
+          
+          // Autocompletar campos solo si vienen datos
+          setFormDataStep1(prev => ({
+            ...prev,
+            modelo: data.modelo || prev.modelo,
+            distribuidor: data.distribuidor || prev.distribuidor,
+            cliente: data.cliente || prev.cliente,
+            rucDni: data.ruc_dni || prev.ruc_dni,
+            departamento: data.departamento || prev.departamento,
+            distrito: data.distrito || prev.distrito,
+            direccion: data.direccion || prev.direccion,
+            iccidChip: data.iccid_chip || prev.iccidChip,
+            imei: data.imei_dispositivo || prev.imei,
+          }));
+          
+          Toast.show({
+            type: 'success',
+            text1: 'Datos autocompletados',
+            text2: `Nevera: ${codigoNevera}`,
+            position: 'bottom',
+            visibilityTime: 2000,
+          });
+          
+          console.log('Datos autocompletados:', data);
+        } catch (error) {
+          console.error('Error obteniendo datos de nevera:', error);
+          // Silenciar error 400 (código no encontrado o incompleto)
+          if (error.response?.status === 400) {
+            console.log('Código no encontrado o incompleto');
+          } else {
+            // Solo mostrar toast para otros errores
+            Toast.show({
+              type: 'error',
+              text1: 'Error de conexión',
+              text2: 'No se pudo consultar los datos',
+              position: 'bottom',
+              visibilityTime: 2000,
+            });
+          }
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    // Debounce para evitar consultas mientras escribe
+    const timeoutId = setTimeout(fetchNeveraData, 800);
+    
+    return () => clearTimeout(timeoutId);
+  }, [formDataStep1.codigoNevera]);
 
   // Manejar cambio de campo - Paso 2
   const handleChangeFieldStep2 = (fieldName, value) => {
@@ -123,7 +296,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
 
   // Manejar entrada por voz
   const handleVoiceInput = (fieldName, fieldLabel = '') => {
-    console.log('🎤 Iniciando entrada por voz para:', fieldName, fieldLabel);
+    console.log('Iniciando entrada por voz para:', fieldName, fieldLabel);
     
     // Determinar el paso actual para actualizar el formData correcto
     let voiceField = fieldName;
@@ -151,20 +324,20 @@ const NuevaInstalacionScreen = ({ navigation }) => {
 
   // Manejar resultado de voz
   const handleVoiceResult = (text) => {
-    console.log('🎤 Texto de voz recibido:', text);
-    console.log('🎤 Campo destino:', currentVoiceField);
-    console.log('🎤 Paso actual:', currentStep);
+    console.log('Texto de voz recibido:', text);
+    console.log('Campo destino:', currentVoiceField);
+    console.log('Paso actual:', currentStep);
     
     // Actualizar el formData según el paso actual
     if (currentStep === 1 && currentVoiceField) {
       setFormDataStep1({ ...formDataStep1, [currentVoiceField]: text });
-      console.log('✅ FormDataStep1 actualizado con voz');
+      console.log('FormDataStep1 actualizado con voz');
     } else if (currentStep === 3 && currentVoiceField) {
       setFormDataStep3({ ...formDataStep3, [currentVoiceField]: text });
-      console.log('✅ FormDataStep3 actualizado con voz');
+      console.log('FormDataStep3 actualizado con voz');
     } else if (currentStep === 4 && currentVoiceField) {
       setFormDataStep4({ ...formDataStep4, [currentVoiceField]: text });
-      console.log('✅ FormDataStep4 actualizado con voz');
+      console.log('FormDataStep4 actualizado con voz');
     }
     
     // Mostrar toast de confirmación
@@ -195,22 +368,22 @@ const NuevaInstalacionScreen = ({ navigation }) => {
 
   // Manejar escaneo de código de barras
   const handleBarcodeScan = (fieldName) => {
-    console.log('🔍 Iniciando escaneo para campo:', fieldName);
+    console.log('Iniciando escaneo para campo:', fieldName);
     setCurrentScanField(fieldName);
     setShowBarcodeScanner(true);
   };
 
   // Manejar código escaneado
   const handleCodeScanned = (code) => {
-    console.log('📥 Código recibido:', code);
-    console.log('📝 Campo actual:', currentScanField);
-    console.log('📋 FormData antes:', formDataStep1);
+    console.log('Código recibido:', code);
+    console.log('Campo actual:', currentScanField);
+    console.log('FormData antes:', formDataStep1);
     
     setFormDataStep1({ ...formDataStep1, [currentScanField]: code });
     setShowBarcodeScanner(false);
     setCurrentScanField(null);
     
-    console.log('✅ FormData actualizado');
+    console.log('FormData actualizado');
     
     Toast.show({
       type: 'success',
@@ -272,61 +445,97 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     setLoading(true);
 
     try {
-      // Obtener ubicación actual del dispositivo
-      const currentLocation = await getCurrentLocation();
+      // Paso 1: Validar estado de la nevera
+      console.log('Validando estado de nevera:', formDataStep1.codigoNevera);
+      const statusResponse = await validateNeveraStatus(formDataStep1.codigoNevera);
       
-      // Obtener fecha y hora actual
-      const currentDateTime = formatDateTime(new Date());
-
-      // Simular llamada al endpoint (después será real)
-      setTimeout(() => {
-        // Datos obtenidos del dispositivo real
-        const deviceData = {
-          sincronizado: Math.random() > 0.5, // Esto vendrá del endpoint real
-          conexion: currentDateTime,
-          coordenadas: `${currentLocation.latitude.toFixed(5)}, ${currentLocation.longitude.toFixed(6)}`,
-          ubicacion: 'Sincronizado', // Esto vendrá del endpoint real
-          senalGPS: Math.floor(currentLocation.accuracy || 10), // Precisión GPS
-          senalCelular: '15.0', // TODO: Obtener señal celular real si es posible
-          ultimasAlertas: {
-            conectado: currentDateTime,
-            desconectado: null,
-            sinEvento: null,
-          },
-        };
-
-        setValidationData(deviceData);
-        setShowValidationModal(true);
+      if (statusResponse.status !== 1) {
         setLoading(false);
+        Toast.show({
+          type: 'error',
+          text1: 'Error de validación',
+          text2: statusResponse.msg || 'No se pudo validar el estado de la nevera',
+          position: 'bottom',
+          visibilityTime: 3000,
+        });
+        return;
+      }
 
-        // TODO: Reemplazar con llamada real al endpoint
-        // try {
-        //   const response = await API.validarDatosGenerales({
-        //     ...formDataStep1,
-        //     latitud: currentLocation.latitude,
-        //     longitud: currentLocation.longitude,
-        //     fechaHora: currentDateTime,
-        //   });
-        //   setValidationData(response.data);
-        //   setShowValidationModal(true);
-        // } catch (error) {
-        //   Toast.show({
-        //     type: 'error',
-        //     text1: 'Error',
-        //     text2: 'No se pudo validar los datos',
-        //     position: 'bottom',
-        //   });
-        // } finally {
-        //   setLoading(false);
-        // }
-      }, 1500);
+      console.log('Estado de nevera validado:', statusResponse);
+
+      // Paso 2: Obtener ubicación y validar sincronización
+      const currentLocation = await getCurrentLocation();
+      const currentDateTime = formatDateTime(new Date());
+      
+      console.log('Validando sincronización con:', {
+        fecha: currentDateTime,
+        latitud: currentLocation.latitude,
+        longitud: currentLocation.longitude,
+        imei: formDataStep1.imei,
+      });
+
+      const syncResponse = await validateTechnicianSync(
+        currentDateTime,
+        currentLocation.latitude,
+        currentLocation.longitude,
+        formDataStep1.imei,
+        2
+      );
+
+      console.log('Respuesta de sincronización:', syncResponse);
+
+      // Verificar si al menos uno de los eventos es "Conectado" o "Desconectado"
+      let hasSyncEvent = false;
+      let conectadoFecha = null;
+      let desconectadoFecha = null;
+
+      if (Array.isArray(syncResponse) && syncResponse.length > 0) {
+        for (const item of syncResponse) {
+          if (item.evento === 'Conectado') {
+            hasSyncEvent = true;
+            conectadoFecha = item.fecha;
+          } else if (item.evento === 'Desconectado') {
+            hasSyncEvent = true;
+            desconectadoFecha = item.fecha;
+          }
+        }
+      }
+
+      // Obtener señal GPS y señal celular del primer elemento
+      const primeraRespuesta = syncResponse[0] || {};
+      const senalGPS = primeraRespuesta.gps || 0;
+      const senalCelular = primeraRespuesta.senial || 0.0;
+
+      // Preparar datos para el modal
+      const deviceData = {
+        sincronizado: hasSyncEvent,
+        conexion: currentDateTime,
+        coordenadas: `${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`,
+        ubicacion: hasSyncEvent ? 'Sincronizado' : 'No Sincronizado',
+        senalGPS: senalGPS,
+        senalCelular: senalCelular,
+        ultimasAlertas: {
+          conectado: conectadoFecha || 'N/A',
+          desconectado: desconectadoFecha || 'N/A',
+        },
+      };
+
+      console.log('Datos del modal:', deviceData);
+
+      setValidationData(deviceData);
+      setShowValidationModal(true);
+      setLoading(false);
+
     } catch (error) {
       setLoading(false);
+      console.error('Error en validación:', error);
+      
       Toast.show({
         type: 'error',
-        text1: 'Error de ubicación',
-        text2: 'No se pudo obtener la ubicación GPS',
+        text1: 'Error de validación',
+        text2: error.response?.data?.msg || 'No se pudo validar los datos',
         position: 'bottom',
+        visibilityTime: 3000,
       });
     }
   };
@@ -344,91 +553,241 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     }
   };
 
-  // Avanzar paso 2 → Paso 3 (con validación)
+  // Avanzar paso 2 → Paso 3 (con validación igual que paso 1 → 2)
   const handleNextStep2 = async () => {
     setLoading(true);
 
     try {
-      // Obtener ubicación actual del dispositivo
-      const currentLocation = await getCurrentLocation();
+      // Paso 1: Validar estado de la nevera
+      console.log('Validando estado de nevera (Paso 2):', formDataStep1.codigoNevera);
+      const statusResponse = await validateNeveraStatus(formDataStep1.codigoNevera);
       
-      // Obtener fecha y hora actual
-      const currentDateTime = formatDateTime(new Date());
-
-      // Simular llamada al endpoint de validación (después será real)
-      setTimeout(() => {
-        // Datos obtenidos del dispositivo real
-        const deviceData = {
-          sincronizado: Math.random() > 0.3, // Esto vendrá del endpoint real
-          conexion: currentDateTime,
-          coordenadas: `${currentLocation.latitude.toFixed(5)}, ${currentLocation.longitude.toFixed(6)}`,
-          ubicacion: 'Sincronizado', // Esto vendrá del endpoint real
-          senalGPS: Math.floor(currentLocation.accuracy || 10), // Precisión GPS
-          senalCelular: '15.0', // TODO: Obtener señal celular real si es posible
-          ultimasAlertas: {
-            conectado: currentDateTime,
-            desconectado: null,
-            sinEvento: null,
-          },
-        };
-
-        setValidationData(deviceData);
-        setShowValidationModal(true);
+      if (statusResponse.status !== 1) {
         setLoading(false);
+        Toast.show({
+          type: 'error',
+          text1: 'Error de validación',
+          text2: statusResponse.msg || 'No se pudo validar el estado de la nevera',
+          position: 'bottom',
+          visibilityTime: 3000,
+        });
+        return;
+      }
 
-        // TODO: Reemplazar con llamada real al endpoint
-        // try {
-        //   const response = await API.validarFuncionamientoEquipo({
-        //     ...formDataStep1,
-        //     ...formDataStep2,
-        //     latitud: currentLocation.latitude,
-        //     longitud: currentLocation.longitude,
-        //     fechaHora: currentDateTime,
-        //   });
-        //   setValidationData(response.data);
-        //   setShowValidationModal(true);
-        // } catch (error) {
-        //   Toast.show({
-        //     type: 'error',
-        //     text1: 'Error',
-        //     text2: 'No se pudo validar los datos',
-        //     position: 'bottom',
-        //   });
-        // } finally {
-        //   setLoading(false);
-        // }
-      }, 1500);
+      console.log('Estado de nevera validado (Paso 2):', statusResponse);
+
+      // Paso 2: Obtener ubicación y validar sincronización
+      const currentLocation = await getCurrentLocation();
+      const currentDateTime = formatDateTime(new Date());
+      
+      console.log('Validando sincronización (Paso 2) con:', {
+        fecha: currentDateTime,
+        latitud: currentLocation.latitude,
+        longitud: currentLocation.longitude,
+        imei: formDataStep1.imei,
+      });
+
+      const syncResponse = await validateTechnicianSync(
+        currentDateTime,
+        currentLocation.latitude,
+        currentLocation.longitude,
+        formDataStep1.imei,
+        2
+      );
+
+      console.log('Respuesta de sincronización (Paso 2):', syncResponse);
+
+      // Verificar si al menos uno de los eventos es "Conectado" o "Desconectado"
+      let hasSyncEvent = false;
+      let conectadoFecha = null;
+      let desconectadoFecha = null;
+
+      if (Array.isArray(syncResponse) && syncResponse.length > 0) {
+        for (const item of syncResponse) {
+          if (item.evento === 'Conectado') {
+            hasSyncEvent = true;
+            conectadoFecha = item.fecha;
+          } else if (item.evento === 'Desconectado') {
+            hasSyncEvent = true;
+            desconectadoFecha = item.fecha;
+          }
+        }
+      }
+
+      // Obtener señal GPS y señal celular del primer elemento
+      const primeraRespuesta = syncResponse[0] || {};
+      const senalGPS = primeraRespuesta.gps || 0;
+      const senalCelular = primeraRespuesta.senial || 0.0;
+
+      // Preparar datos para el modal
+      const deviceData = {
+        sincronizado: hasSyncEvent,
+        conexion: currentDateTime,
+        coordenadas: `${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`,
+        ubicacion: hasSyncEvent ? 'Sincronizado' : 'No Sincronizado',
+        senalGPS: senalGPS,
+        senalCelular: senalCelular,
+        ultimasAlertas: {
+          conectado: conectadoFecha || 'N/A',
+          desconectado: desconectadoFecha || 'N/A',
+        },
+      };
+
+      console.log('Datos del modal (Paso 2):', deviceData);
+
+      setValidationData(deviceData);
+      setShowValidationModal(true);
+      setLoading(false);
+
     } catch (error) {
       setLoading(false);
+      console.error('Error en validación (Paso 2):', error);
+      
       Toast.show({
         type: 'error',
-        text1: 'Error de ubicación',
-        text2: 'No se pudo obtener la ubicación GPS',
+        text1: 'Error de validación',
+        text2: error.response?.data?.msg || 'No se pudo validar los datos',
         position: 'bottom',
+        visibilityTime: 3000,
       });
     }
   };
 
   // Avanzar paso 3 → Paso 4 (sin validación, solo avanza)
   const handleNextStep3 = () => {
+    console.log('Guardando datos del Paso 3 (Observaciones)');
+    
+    // Actualizar instalacionData con los datos del Paso 3
+    setInstalacionData(prev => ({
+      ...prev,
+      observacion1: formDataStep3.observacion1,
+      fotoObservacion1Path: formDataStep3.fotoObservacion1,
+      observacion2: formDataStep3.observacion2,
+      fotoObservacion2Path: formDataStep3.fotoObservacion2,
+    }));
+    
+    console.log('Datos del Paso 3 guardados, avanzando al Paso 4 (Firma Cliente)');
+    Toast.show({
+      type: 'success',
+      text1: 'Datos guardados',
+      text2: 'Avanzando a firma del cliente',
+      position: 'bottom',
+      visibilityTime: 1500,
+    });
+    
     setCurrentStep(4);
   };
 
   // Generar PDF y avanzar al Paso 5 (Vista Previa)
   const handleGeneratePDF = async () => {
     setPdfLoading(true);
+    
     try {
-      // TODO: Integrar con el endpoint real para generar el PDF
-      // const response = await API.generateInstallationPDF({
-      //   ...formDataStep1,
-      //   ...formDataStep2,
-      //   ...formDataStep3,
-      //   ...formDataStep4,
-      // });
-      // setPdfUrl(response.pdfUrl);
+      console.log('Guardando datos del Paso 4 (Firma Cliente)');
       
+      // Actualizar instalacionData con los datos del Paso 4
+      const updatedInstalacionData = {
+        ...instalacionData,
+        // Firma del cliente
+        clienteRespFirmaPath: formDataStep4.fotoFirma,
+        clienteRespNombreApellido: formDataStep4.nombresApellidos,
+        clienteRespDni: formDataStep4.dniCliente,
+      };
+      
+      setInstalacionData(updatedInstalacionData);
+      
+      console.log('Datos del Paso 4 guardados');
+      console.log('Subiendo imágenes al servidor...');
+      
+      // Preparar array de imágenes a subir
+      const imagesToUpload = [];
+      
+      // Foto inspección previa
+      if (updatedInstalacionData.iprevFotoPath) {
+        imagesToUpload.push({
+          uri: updatedInstalacionData.iprevFotoPath,
+          fieldName: 'iprevFoto'
+        });
+      }
+      
+      // Fotos de instalación
+      if (updatedInstalacionData.fotoDispInstaCajaMetalicaAbiertaPath) {
+        imagesToUpload.push({
+          uri: updatedInstalacionData.fotoDispInstaCajaMetalicaAbiertaPath,
+          fieldName: 'fotoDispInstaCajaMetalicaAbierta'
+        });
+      }
+      if (updatedInstalacionData.fotoEmpalmeCablePath) {
+        imagesToUpload.push({
+          uri: updatedInstalacionData.fotoEmpalmeCablePath,
+          fieldName: 'fotoEmpalmeCable'
+        });
+      }
+      if (updatedInstalacionData.fotoDispInstaCajaMetalicaCerradaPath) {
+        imagesToUpload.push({
+          uri: updatedInstalacionData.fotoDispInstaCajaMetalicaCerradaPath,
+          fieldName: 'fotoDispInstaCajaMetalicaCerrada'
+        });
+      }
+      if (updatedInstalacionData.fotoFachadeNeveraPath) {
+        imagesToUpload.push({
+          uri: updatedInstalacionData.fotoFachadeNeveraPath,
+          fieldName: 'fotoFachadaNevera'
+        });
+      }
+      
+      // Fotos de observaciones
+      if (updatedInstalacionData.fotoObservacion1Path) {
+        imagesToUpload.push({
+          uri: updatedInstalacionData.fotoObservacion1Path,
+          fieldName: 'fotoObservacion1'
+        });
+      }
+      if (updatedInstalacionData.fotoObservacion2Path) {
+        imagesToUpload.push({
+          uri: updatedInstalacionData.fotoObservacion2Path,
+          fieldName: 'fotoObservacion2'
+        });
+      }
+      
+      // Firma del cliente
+      if (updatedInstalacionData.clienteRespFirmaPath) {
+        imagesToUpload.push({
+          uri: updatedInstalacionData.clienteRespFirmaPath,
+          fieldName: 'clienteRespFirma'
+        });
+      }
+
+      // Subir imágenes y obtener filenames
+      console.log(`📸 Subiendo ${imagesToUpload.length} imágenes...`);
+      
+      for (const image of imagesToUpload) {
+        try {
+          const filename = await uploadImageToServer(image.uri, updatedInstalacionData.codigo);
+          console.log(`Imagen subida: ${image.fieldName} -> ${filename}`);
+          
+          // Actualizar el filename en instalacionData
+          updatedInstalacionData[image.fieldName] = filename;
+        } catch (error) {
+          console.error(`Error subiendo ${image.fieldName}:`, error);
+          Toast.show({
+            type: 'error',
+            text1: 'Error subiendo imagen',
+            text2: `No se pudo subir ${image.fieldName}`,
+            position: 'bottom',
+          });
+        }
+      }
+      
+      // Actualizar el estado con los filenames
+      setInstalacionData(updatedInstalacionData);
+      
+      console.log('Todas las imágenes subidas');
+      console.log('Datos de instalación completos:', updatedInstalacionData);
+      
+      // TODO: Integrar con el endpoint real para generar el PDF
       // Por ahora, simulamos la generación del PDF
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       // URL de ejemplo (reemplazar con la URL real del backend)
       setPdfUrl('https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf');
@@ -465,16 +824,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     setLoading(true);
     
     try {
-      // TODO: Integrar con el endpoint real para enviar la confirmación final
-      // const response = await API.submitInstallation({
-      //   ...formDataStep1,
-      //   ...formDataStep2,
-      //   ...formDataStep3,
-      //   ...formDataStep4,
-      //   pdfUrl,
-      // });
-      
-      // Simular llamada al endpoint
+
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       console.log('Datos completos enviados:', {
@@ -510,10 +860,34 @@ const NuevaInstalacionScreen = ({ navigation }) => {
 
   // Cerrar modal de validación (diferente según el paso)
   const handleCloseValidationModal = () => {
-    setShowValidationModal(false);
-    
+    // Solo avanzar si está sincronizado
     if (validationData?.sincronizado) {
+      setShowValidationModal(false);
+      
       if (currentStep === 1) {
+        // Actualizar instalacionData con los datos del Paso 1
+        setInstalacionData(prev => ({
+          ...prev,
+          codigo: formDataStep1.codigoNevera,
+          modelo: formDataStep1.modelo,
+          distribuidor: formDataStep1.distribuidor,
+          clienteNombres: formDataStep1.cliente,
+          rucDni: formDataStep1.rucDni,
+          departamento: formDataStep1.departamento,
+          provincia: formDataStep1.provincia,
+          distrito: formDataStep1.distrito,
+          direccion: formDataStep1.direccion,
+          iccidChip: formDataStep1.iccidChip,
+          imeiDispositivo: formDataStep1.imei,
+          otro: formDataStep1.otro,
+          latitud: validationData.coordenadas?.split(',')[0]?.trim() || '',
+          longitud: validationData.coordenadas?.split(',')[1]?.trim() || '',
+          transmisionRedCelular: validationData.senalCelular?.toString() || '',
+          transmisionGps: validationData.senalGPS?.toString() || '',
+          alertaDesconexion: validationData.ultimasAlertas?.desconectado || '',
+          alertaReconexion: validationData.ultimasAlertas?.conectado || '',
+        }));
+
         // Paso 1 → Paso 2: Avanzar a Funcionamiento Equipo
         Toast.show({
           type: 'success',
@@ -523,6 +897,31 @@ const NuevaInstalacionScreen = ({ navigation }) => {
         });
         setCurrentStep(2);
       } else if (currentStep === 2) {
+        // Actualizar instalacionData con los datos del Paso 2
+        setInstalacionData(prev => ({
+          ...prev,
+          // Inspección previa
+          iprevNeveraEnergizada: booleanToSiNo(formDataStep2.neveraEnergizadaPrev),
+          iprevCompresorEnciende: booleanToSiNo(formDataStep2.compresorEnciendePrev),
+          iprevTermostatoOp: booleanToSiNo(formDataStep2.termostatoOperativoPrev),
+          iprevEstaCableElec: booleanToSiNo(formDataStep2.cableadoBuenasCondPrev),
+          iprevComentario: formDataStep2.comentario,
+          iprevFotoPath: formDataStep2.fotoInspeccionPrevia,
+          
+          // Fotos de instalación (URIs locales)
+          fotoDispInstaCajaMetalicaAbiertaPath: formDataStep2.fotoCajaMetalicaAbierta,
+          fotoEmpalmeCablePath: formDataStep2.fotoEmpalmeCable,
+          fotoDispInstaCajaMetalicaCerradaPath: formDataStep2.fotoCajaMetalicaCerrada,
+          fotoFachadeNeveraPath: formDataStep2.fotoFachadaNevera,
+          
+          // Inspección posterior
+          cierreRejilla: booleanToSiNo(formDataStep2.cierreRejilla),
+          ipostNeveraEnergizada: booleanToSiNo(formDataStep2.neveraEnergizadaPost),
+          ipostCompresorEnciende: booleanToSiNo(formDataStep2.compresorPost),
+          ipostTermostatoOp: booleanToSiNo(formDataStep2.termostatoPost),
+          ipostEstaCableElec: booleanToSiNo(formDataStep2.cableadoElectricoPost),
+        }));
+
         // Paso 2 → Paso 3: Avanzar a Observaciones
         Toast.show({
           type: 'success',
@@ -533,12 +932,13 @@ const NuevaInstalacionScreen = ({ navigation }) => {
         setCurrentStep(3);
       }
     } else {
-      // Si no está sincronizado, mostrar mensaje
+      setShowValidationModal(false);
       Toast.show({
-        type: 'warning',
+        type: 'info',
         text1: 'No sincronizado',
-        text2: 'Revisa los datos e intenta de nuevo',
+        text2: 'El equipo no está sincronizado. Verifica la conexión.',
         position: 'bottom',
+        visibilityTime: 3000,
       });
     }
   };
@@ -573,6 +973,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
           onChangeField={handleChangeFieldStep1}
           onBarcodeScan={handleBarcodeScan}
           onVoiceInput={handleVoiceInput}
+          onIccidUpdate={handleIccidUpdate}
         />
       )}
       
@@ -692,6 +1093,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
         }}
         onResult={handleVoiceResult}
         fieldLabel={currentVoiceFieldLabel}
+        removeSpaces={currentVoiceField === 'codigoNevera'}
       />
     </ScrollView>
   );

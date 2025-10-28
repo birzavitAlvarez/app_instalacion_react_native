@@ -1,29 +1,35 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import EnhancedInput from './EnhancedInput';
+import AutocompleteNevera from './AutocompleteNevera';
+import AutocompleteImei from './AutocompleteImei';
 
 const DatosGenerales = ({
   formData,
   onChangeField,
   onBarcodeScan,
   onVoiceInput,
+  onIccidUpdate,
   errors = {},
 }) => {
   return (
     <View style={styles.container}>
-      {/* Código de Nevera */}
+      {/* Código de Nevera con Autocompletado */}
       <View style={styles.section}>
         <Text style={styles.label}>Código de Nevera</Text>
-        <EnhancedInput
+        <AutocompleteNevera
           value={formData.codigoNevera}
           onChangeText={(value) => onChangeField('codigoNevera', value)}
-          placeholder="Buscar por código"
-          showBarcode={true}
-          showMicrophone={true}
-          onBarcodePress={() => onBarcodeScan('codigoNevera')}
-          onMicrophonePress={() => onVoiceInput('Código de Nevera')}
-          error={errors.codigoNevera}
+          onSelectNevera={(nevera) => {
+            // Cuando selecciona de la lista, actualizar el código
+            onChangeField('codigoNevera', nevera.codigo);
+          }}
+          onBarcodeScan={() => onBarcodeScan('codigoNevera')}
+          onVoiceInput={() => onVoiceInput('codigoNevera', 'Código de Nevera')}
         />
+        {errors.codigoNevera && (
+          <Text style={styles.errorText}>{errors.codigoNevera}</Text>
+        )}
       </View>
 
       {/* Modelo */}
@@ -122,19 +128,23 @@ const DatosGenerales = ({
         />
       </View>
 
-      {/* IMEI */}
+      {/* IMEI con Autocompletado */}
       <View style={styles.section}>
-        <EnhancedInput
+        <Text style={styles.label}>IMEI</Text>
+        <AutocompleteImei
           value={formData.imei}
           onChangeText={(value) => onChangeField('imei', value)}
-          placeholder="BUSCAR POR IMEI"
-          keyboardType="numeric"
-          showBarcode={true}
-          showMicrophone={true}
-          onBarcodePress={() => onBarcodeScan('imei')}
-          onMicrophonePress={() => onVoiceInput('IMEI')}
-          error={errors.imei}
+          onSelectImei={(imeiData) => {
+            // Cuando selecciona un IMEI, actualizar el campo
+            console.log('IMEI seleccionado:', imeiData);
+          }}
+          onIccidUpdate={onIccidUpdate}
+          onBarcodeScan={() => onBarcodeScan('imei')}
+          onVoiceInput={() => onVoiceInput('imei', 'IMEI')}
         />
+        {errors.imei && (
+          <Text style={styles.errorText}>{errors.imei}</Text>
+        )}
       </View>
 
       {/* Otro */}
@@ -162,6 +172,11 @@ const styles = StyleSheet.create({
     color: '#2b4a8b',
     marginBottom: 8,
     fontWeight: '500',
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#d32f2f',
+    marginTop: 4,
   },
 });
 

@@ -1,7 +1,8 @@
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import * as FileSystem from 'react-native-fs';
+import ImageResizer from '@bam.tech/react-native-image-resizer';
 
-const BYTES_LIMIT = 30 * 1024;
+const BYTES_LIMIT = 30 * 1024; // 30 KB
 
 /**
  * Devuelve tamaño en bytes de un base64
@@ -13,29 +14,80 @@ const base64Size = (b64) => {
 };
 
 /**
- * Convierte URI a Base64
+ * Comprime imagen iterativamente hasta que sea menor o igual a 30 KB
+ * Siempre convierte a formato JPEG
  */
-async function uriToBase64(uri) {
+async function compressImageTo30KB(uri) {
   try {
-    const base64 = await FileSystem.readFile(uri, 'base64');
-    return `data:image/jpeg;base64,${base64}`;
+    console.log('📏 Iniciando compresión de imagen a 30 KB...');
+    
+    let quality = 100; // Comenzar con máxima calidad
+    let width = 1024; // Ancho inicial
+    let height = 1024; // Alto inicial
+    let compressedUri = uri;
+    let attempt = 0;
+    const maxAttempts = 15; // Máximo 15 intentos
+
+    while (attempt < maxAttempts) {
+      attempt++;
+      
+      // Comprimir imagen con los parámetros actuales
+      const resized = await ImageResizer.createResizedImage(
+        compressedUri,
+        width,
+        height,
+        'JPEG', // Siempre convertir a JPEG
+        quality,
+        0, // rotación
+        undefined, // outputPath (auto)
+        false, // keepMeta
+        { mode: 'contain', onlyScaleDown: true }
+      );
+
+      compressedUri = resized.uri;
+      
+      // Leer el tamaño del archivo
+      const fileInfo = await FileSystem.stat(compressedUri);
+      const fileSize = fileInfo.size;
+      
+      console.log(`🔄 Intento ${attempt}: ${(fileSize / 1024).toFixed(2)} KB (quality: ${quality}, size: ${width}x${height})`);
+
+      // Si el tamaño es menor o igual a 30 KB, terminar
+      if (fileSize <= BYTES_LIMIT) {
+        console.log(`✅ Compresión exitosa: ${(fileSize / 1024).toFixed(2)} KB`);
+        return compressedUri;
+      }
+
+      // Ajustar parámetros para siguiente intento
+      if (quality > 50) {
+        // Primero reducir calidad
+        quality -= 10;
+      } else if (width > 400 || height > 400) {
+        // Si la calidad ya es baja, reducir dimensiones
+        width = Math.floor(width * 0.8);
+        height = Math.floor(height * 0.8);
+        quality = 70; // Resetear calidad un poco
+      } else {
+        // Última opción: reducir calidad agresivamente
+        quality = Math.max(10, quality - 10);
+      }
+    }
+
+    console.warn('⚠️ No se pudo reducir la imagen a 30 KB después de 15 intentos');
+    return compressedUri; // Retornar la última versión comprimida
   } catch (error) {
-    console.error('Error converting URI to Base64:', error);
+    console.error('❌ Error comprimiendo imagen:', error);
     throw error;
   }
 }
 
 /**
- * Abre la galería y retorna imagen comprimida
+ * Abre la galería y retorna imagen comprimida a 30 KB en formato JPEG
  */
 export async function pickFromGalleryCompressed() {
   try {
     const result = await launchImageLibrary({
       mediaType: 'photo',
-      includeBase64: true,
-      quality: 0.6,
-      maxWidth: 800,
-      maxHeight: 800,
       selectionLimit: 1,
     });
 
@@ -43,19 +95,25 @@ export async function pickFromGalleryCompressed() {
     if (result.errorCode) throw new Error(result.errorMessage || 'Error al abrir galería');
 
     const asset = result.assets?.[0];
-    if (!asset) throw new Error('No se pudo obtener la imagen');
+    if (!asset || !asset.uri) throw new Error('No se pudo obtener la imagen');
 
-    let base64 = asset.base64;
-    const base64WithHeader = base64?.startsWith('data:')
-      ? base64
-      : `data:image/jpeg;base64,${base64}`;
-
+    console.log('📸 Imagen seleccionada de galería:', asset.uri);
+    
+    // Comprimir imagen a 30 KB en formato JPEG
+    const compressedUri = await compressImageTo30KB(asset.uri);
+    
+    // Convertir a base64
+    const base64 = await FileSystem.readFile(compressedUri, 'base64');
+    const base64WithHeader = `data:image/jpeg;base64,${base64}`;
+    
     const size = base64Size(base64WithHeader);
+    
+    console.log(`✅ Imagen comprimida: ${(size / 1024).toFixed(2)} KB`);
 
     return {
       base64: base64WithHeader,
       bytes: size,
-      uri: asset.uri,
+      uri: compressedUri,
     };
   } catch (error) {
     console.error('Error en pickFromGalleryCompressed:', error);
@@ -64,16 +122,12 @@ export async function pickFromGalleryCompressed() {
 }
 
 /**
- * Abre la cámara y retorna foto comprimida
+ * Abre la cámara y retorna foto comprimida a 30 KB en formato JPEG
  */
 export async function takePhotoCompressed() {
   try {
     const result = await launchCamera({
       mediaType: 'photo',
-      includeBase64: true,
-      quality: 0.6,
-      maxWidth: 800,
-      maxHeight: 800,
       saveToPhotos: false,
     });
 
@@ -81,19 +135,25 @@ export async function takePhotoCompressed() {
     if (result.errorCode) throw new Error(result.errorMessage || 'Error al abrir cámara');
 
     const asset = result.assets?.[0];
-    if (!asset) throw new Error('No se pudo capturar la imagen');
+    if (!asset || !asset.uri) throw new Error('No se pudo capturar la imagen');
 
-    let base64 = asset.base64;
-    const base64WithHeader = base64?.startsWith('data:')
-      ? base64
-      : `data:image/jpeg;base64,${base64}`;
-
+    console.log('📸 Foto capturada:', asset.uri);
+    
+    // Comprimir imagen a 30 KB en formato JPEG
+    const compressedUri = await compressImageTo30KB(asset.uri);
+    
+    // Convertir a base64
+    const base64 = await FileSystem.readFile(compressedUri, 'base64');
+    const base64WithHeader = `data:image/jpeg;base64,${base64}`;
+    
     const size = base64Size(base64WithHeader);
+    
+    console.log(`✅ Foto comprimida: ${(size / 1024).toFixed(2)} KB`);
 
     return {
       base64: base64WithHeader,
       bytes: size,
-      uri: asset.uri,
+      uri: compressedUri,
     };
   } catch (error) {
     console.error('Error en takePhotoCompressed:', error);
@@ -111,12 +171,23 @@ export function normalizeBase64FromBackend(value) {
 }
 
 /**
- * Convierte una imagen URI a Base64
+ * Convierte una imagen URI a Base64 comprimida a 30 KB en formato JPEG
  */
 export async function convertImageToBase64(uri) {
   try {
-    const base64 = await FileSystem.readFile(uri, 'base64');
-    return `data:image/jpeg;base64,${base64}`;
+    console.log('🔄 Convirtiendo imagen a Base64 comprimida:', uri);
+    
+    // Comprimir imagen a 30 KB en formato JPEG
+    const compressedUri = await compressImageTo30KB(uri);
+    
+    // Convertir a base64
+    const base64 = await FileSystem.readFile(compressedUri, 'base64');
+    const base64WithHeader = `data:image/jpeg;base64,${base64}`;
+    
+    const size = base64Size(base64WithHeader);
+    console.log(`✅ Imagen convertida: ${(size / 1024).toFixed(2)} KB`);
+    
+    return base64WithHeader;
   } catch (error) {
     console.error('Error convirtiendo imagen a Base64:', error);
     throw error;
