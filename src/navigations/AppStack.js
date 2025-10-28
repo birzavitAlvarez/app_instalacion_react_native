@@ -7,6 +7,7 @@ import InstalacionScreen from '../screens/InstalacionScreen';
 import NuevaInstalacionScreen from '../screens/NuevaInstalacionScreen';
 import NuevaInstalacionFallidaScreen from '../screens/NuevaInstalacionFallidaScreen';
 import MapaScreen from '../screens/MapaScreen';
+import Historial from '../screens/Historial';
 import SuccessScreen from '../screens/SuccessScreen';
 const Stack = createNativeStackNavigator();
 
@@ -24,6 +25,7 @@ const AppStack = () => {
       <Stack.Screen name='NuevaInstalacion' component={NuevaInstalacionScreen} />
       <Stack.Screen name='NuevaInstalacionFallida' component={NuevaInstalacionFallidaScreen} />
       <Stack.Screen name='Mapa' component={MapaScreen} />
+      <Stack.Screen name='Historial' component={Historial} />
       <Stack.Screen 
         name='SuccessScreen' 
         component={SuccessScreen}

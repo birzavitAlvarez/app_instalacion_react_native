@@ -32,6 +32,7 @@ const HomeScreen = () => {
             iconName="history"
             title="Historial"
             description="Ver historial."
+            onPress={() => navigation.navigate("Historial")}
           />
         </View>
 
