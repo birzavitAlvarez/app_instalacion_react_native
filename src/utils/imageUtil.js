@@ -1,8 +1,6 @@
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import * as FileSystem from 'react-native-fs';
-import ImageResizer from '@bam.tech/react-native-image-resizer';
-
-const BYTES_LIMIT = 30 * 1024; // 30 KB
+import { Image } from 'react-native-compressor';
 
 /**
  * Devuelve tamaño en bytes de un base64
@@ -21,60 +19,79 @@ async function compressImageTo30KB(uri) {
   try {
     console.log('📏 Iniciando compresión de imagen a 30 KB...');
     
-    let quality = 100; // Comenzar con máxima calidad
-    let width = 1024; // Ancho inicial
-    let height = 1024; // Alto inicial
-    let compressedUri = uri;
-    let attempt = 0;
-    const maxAttempts = 15; // Máximo 15 intentos
+    const targetSize = 30 * 1024; // 30 KB
+    let currentQuality = 1.0; // Comenzar con máxima calidad (0-1)
+    let currentWidth = 1024; // Ancho inicial
+    let currentHeight = 1024; // Alto inicial
+    let currentUri = uri;
+    let attempts = 0;
+    const maxAttempts = 15;
 
-    while (attempt < maxAttempts) {
-      attempt++;
+    while (attempts < maxAttempts) {
+      attempts++;
       
-      // Comprimir imagen con los parámetros actuales
-      const resized = await ImageResizer.createResizedImage(
-        compressedUri,
-        width,
-        height,
-        'JPEG', // Siempre convertir a JPEG
-        quality,
-        0, // rotación
-        undefined, // outputPath (auto)
-        false, // keepMeta
-        { mode: 'contain', onlyScaleDown: true }
-      );
+      try {
+        // Comprimir imagen con react-native-compressor
+        const compressedUri = await Image.compress(currentUri, {
+          compressionMethod: 'manual',
+          maxWidth: currentWidth,
+          maxHeight: currentHeight,
+          quality: currentQuality,
+          input: 'uri',
+          output: 'jpg', // Siempre convertir a JPG
+          returnableOutputType: 'uri',
+          disablePngTransparency: true, // Convertir transparencias a blanco
+        });
 
-      compressedUri = resized.uri;
-      
-      // Leer el tamaño del archivo
-      const fileInfo = await FileSystem.stat(compressedUri);
-      const fileSize = fileInfo.size;
-      
-      console.log(`🔄 Intento ${attempt}: ${(fileSize / 1024).toFixed(2)} KB (quality: ${quality}, size: ${width}x${height})`);
+        // Obtener tamaño del archivo
+        const filePath = compressedUri.replace('file://', '');
+        const stats = await FileSystem.stat(filePath);
+        const fileSize = parseInt(stats.size, 10);
 
-      // Si el tamaño es menor o igual a 30 KB, terminar
-      if (fileSize <= BYTES_LIMIT) {
-        console.log(`✅ Compresión exitosa: ${(fileSize / 1024).toFixed(2)} KB`);
-        return compressedUri;
-      }
+        console.log(
+          `🔄 Intento ${attempts}/${maxAttempts}: ` +
+          `${(fileSize / 1024).toFixed(2)} KB ` +
+          `(calidad: ${currentQuality.toFixed(2)}, ` +
+          `dimensiones: ${currentWidth}x${currentHeight})`
+        );
 
-      // Ajustar parámetros para siguiente intento
-      if (quality > 50) {
-        // Primero reducir calidad
-        quality -= 10;
-      } else if (width > 400 || height > 400) {
-        // Si la calidad ya es baja, reducir dimensiones
-        width = Math.floor(width * 0.8);
-        height = Math.floor(height * 0.8);
-        quality = 70; // Resetear calidad un poco
-      } else {
-        // Última opción: reducir calidad agresivamente
-        quality = Math.max(10, quality - 10);
+        // Si alcanzamos el objetivo, retornar
+        if (fileSize <= targetSize) {
+          console.log(`✅ Objetivo alcanzado: ${(fileSize / 1024).toFixed(2)} KB`);
+          return compressedUri;
+        }
+
+        // Estrategia de ajuste progresivo
+        if (currentQuality > 0.5) {
+          // Fase 1: Reducir calidad moderadamente
+          currentQuality -= 0.1;
+        } else if (currentQuality > 0.3) {
+          // Fase 2: Reducir calidad y dimensiones
+          currentQuality -= 0.05;
+          currentWidth = Math.floor(currentWidth * 0.9);
+          currentHeight = Math.floor(currentHeight * 0.9);
+        } else {
+          // Fase 3: Reducción agresiva
+          currentQuality = Math.max(0.1, currentQuality - 0.05);
+          currentWidth = Math.floor(currentWidth * 0.8);
+          currentHeight = Math.floor(currentHeight * 0.8);
+        }
+
+        // Límites mínimos
+        currentQuality = Math.max(0.1, currentQuality);
+        currentWidth = Math.max(200, currentWidth);
+        currentHeight = Math.max(200, currentHeight);
+
+        currentUri = compressedUri;
+
+      } catch (compressionError) {
+        console.error(`❌ Error en intento ${attempts}:`, compressionError);
+        throw compressionError;
       }
     }
 
-    console.warn('⚠️ No se pudo reducir la imagen a 30 KB después de 15 intentos');
-    return compressedUri; // Retornar la última versión comprimida
+    console.warn(`⚠️ No se alcanzó el objetivo de 30 KB después de ${maxAttempts} intentos`);
+    return currentUri; // Retornar la última versión comprimida
   } catch (error) {
     console.error('❌ Error comprimiendo imagen:', error);
     throw error;
