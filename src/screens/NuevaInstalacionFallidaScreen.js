@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    StyleSheet,
-    ScrollView,
-    Image,
-    ActivityIndicator,
-    Modal,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  Image,
+  Alert,
+  Linking,
+  ActivityIndicator,
+  Modal,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useLocation } from '../hooks/useLocation';
@@ -18,6 +20,7 @@ import BarcodeScanner from '../components/BarcodeScanner';
 import VoiceInput from '../components/VoiceInput';
 import { takePhotoCompressed, pickFromGalleryCompressed, convertImageToBase64 } from '../utils/imageUtil';
 import { requestCameraPermission, requestGalleryPermission } from '../utils/permissions';
+import AutocompleteNeveraInput from '../components/AutocompleteNeveraInput';
 
 const NuevaInstalacionFallidaScreen = () => {
   // Estados
@@ -102,7 +105,7 @@ const NuevaInstalacionFallidaScreen = () => {
   // Manejar resultado de voz
   const handleVoiceResult = (text) => {
     console.log('🎤 Texto de voz recibido:', text, 'para campo:', currentVoiceField);
-    
+
     // Actualizar el campo correspondiente según el nombre del campo
     switch (currentVoiceField) {
       case 'codigoNevera':
@@ -366,6 +369,13 @@ const NuevaInstalacionFallidaScreen = () => {
     neveraPropiaCliente: 'Nevera propia del cliente',
   };
 
+  const handleGoogleMaps = async () => {
+    const url = `https://maps.google.com/?q=${latitude},${longitude}`;
+    const supported = await Linking.canOpenURL(url);
+    if (supported) await Linking.openURL(url);
+    else Alert.alert("Error", "No se puede abrir el enlace.");
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <Text style={styles.title}>INSTALACIÓN FALLIDA</Text>
@@ -373,16 +383,13 @@ const NuevaInstalacionFallidaScreen = () => {
       {/* Código de Nevera */}
       <View style={styles.section}>
         <Text style={styles.label}>Código de Nevera</Text>
-        <EnhancedInput
+        <AutocompleteNeveraInput
           value={codigoNevera}
           onChangeText={setCodigoNevera}
-          placeholder="Buscar por código"
-          keyboardType="default"
-          showBarcode={true}
-          showMicrophone={true}
           onBarcodePress={handleBarcodeScan}
           onMicrophonePress={() => handleVoiceInput('codigoNevera', 'Código de Nevera')}
         />
+
       </View>
 
       {/* Ubicación */}
@@ -394,25 +401,25 @@ const NuevaInstalacionFallidaScreen = () => {
             disabled={loading}
           >
             <Text style={styles.btnCargarUbicacionText}>
-              {loading ? 'Obteniendo...' : 
-               locationLoading ? 'Obteniendo...' : 
-               'Cargar Ubicación'}
+              {loading ? 'Obteniendo...' :
+                locationLoading ? 'Obteniendo...' :
+                  'Cargar Ubicación'}
             </Text>
           </TouchableOpacity>
-          
+
           <TextInput
-            style={styles.inputUbicacion}
+            style={[ubicacionConfirmada ? styles.inputUbicacionConfirmed : styles.inputUbicacion]}
             placeholder="Ubicación"
             value={latitude && longitude ? `${latitude.toFixed(5)}, ${longitude.toFixed(5)}` : ''}
             editable={false}
           />
         </View>
+        <TouchableOpacity onPress={handleGoogleMaps}>
+          <Text style={{ color: '#007AFF', marginTop: 8, fontSize: 12 }}>https://maps.google.com/?q={latitude.toFixed(5)},{longitude.toFixed(5)}</Text>
+        </TouchableOpacity>
         {locationError && !latitude && (
           <Text style={styles.errorText}>⚠️ {locationError}</Text>
-        )}
-        {ubicacionConfirmada && (
-          <Text style={styles.confirmadoText}>✓ Ubicación confirmada</Text>
-        )}
+        )}        
       </View>
 
       {/* Causas de Fallo */}
@@ -619,6 +626,16 @@ const styles = StyleSheet.create({
     padding: 13,
     fontSize: 14,
     backgroundColor: '#fff',
+    color: '#000',
+  },
+  inputUbicacionConfirmed: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#27ae60',
+    borderRadius: 8,
+    padding: 13,
+    fontSize: 14,
+    backgroundColor: '#eafaf1',
     color: '#000',
   },
   confirmadoText: {

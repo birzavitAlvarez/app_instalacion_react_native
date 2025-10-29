@@ -12,12 +12,11 @@ import {
 import Clipboard from "@react-native-clipboard/clipboard";
 import { AuthContext } from "../context/AuthContext";
 import { fetchHistorialInstalaciones } from "../services/historialService";
-import { FontAwesome } from 'react-native-vector-icons';
 
 const Historial = () => {
   const auth = useContext(AuthContext);
   const userInfo = auth?.userInfo || {};
-  const idUsuario = userInfo?.idUsuario
+  const idUsuario = 114; 
 
   const [efectivas, setEfectivas] = useState([]);
   const [fallidas, setFallidas] = useState([]);
@@ -80,7 +79,7 @@ const Historial = () => {
           style={[styles.button, { backgroundColor: "#007AFF" }]}
           onPress={() => handleVerPDF(item.pdfPath)}
         >
-          <Text style={styles.buttonText}>Ver PDF </Text>
+          <Text style={styles.buttonText}>Ver PDF</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.button, { backgroundColor: "#6B7280" }]}
@@ -151,6 +150,7 @@ const Historial = () => {
         </TouchableOpacity>
       </View>
 
+      {/* 🔹 Contenido */}
       {renderLista()}
     </View>
   );
