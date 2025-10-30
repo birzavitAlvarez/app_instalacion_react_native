@@ -41,9 +41,9 @@ export const LocationProvider = ({ children }) => {
         const hasPermission = granted === PermissionsAndroid.RESULTS.GRANTED;
         
         if (hasPermission) {
-          console.log('✅ Permiso de ubicación concedido');
+          console.log('Permiso de ubicación concedido');
         } else {
-          console.log('❌ Permiso de ubicación denegado');
+          console.log('Permiso de ubicación denegado');
           setError('Permiso de ubicación denegado');
         }
         
@@ -52,7 +52,7 @@ export const LocationProvider = ({ children }) => {
         setIsLoading(false);
         return hasPermission;
       } catch (err) {
-        console.error('❌ Error solicitando permiso:', err);
+        console.error('Error solicitando permiso:', err);
         setError('Error al solicitar permisos');
         setPermissionChecked(true);
         setPermissionGranted(false);
@@ -101,7 +101,7 @@ export const LocationProvider = ({ children }) => {
         },
         { 
           enableHighAccuracy: true, 
-          timeout: 20000,
+          timeout: 60000,
           maximumAge: 1000
         }
       );
@@ -129,7 +129,7 @@ export const LocationProvider = ({ children }) => {
         enableHighAccuracy: true,
         distanceFilter: 10,
         interval: 10000,
-        timeout: 20000,
+        timeout: 60000,
         maximumAge: 1000,
       }
     );

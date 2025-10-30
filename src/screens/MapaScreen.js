@@ -12,6 +12,7 @@ const MapaScreen = () => {
     const [markers, setMarkers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [location, setLocation] = useState(null);
+    const [isConnected, setIsConnected] = useState(false);
     const { latitude, longitude, isLoading: locationLoading, error: locationError, getCurrentLocation } = useLocation();
 
     useEffect(() => {
@@ -21,76 +22,41 @@ const MapaScreen = () => {
 
         const startAutoUpdate = async () => {
             try {
-                await getCurrentLocation();
+                const loc = await getCurrentLocation();
 
-                Toast.show({
-                    type: "info",
-                    text1: "Ubicación activa",
-                    text2: "Iniciando envío automático de coordenadas...",
-                    position: "bottom",
-                    visibilityTime: 2500,
-                });
+                if (loc?.latitude && loc?.longitude) {
+                    const data = {
+                        id: idUsuario,
+                        latitud: loc.latitude.toString(),
+                        longitud: loc.longitude.toString(),
+                    };
+                    const res = await actualizarCoordenadasUsuario(data);
+                    setIsConnected(res?.status === 1);
+                }
 
                 interval = setInterval(async () => {
                     try {
-                        await getCurrentLocation();
+                        const newLoc = await getCurrentLocation();
 
-                        if (latitude && longitude) {
+                        if (newLoc?.latitude && newLoc?.longitude) {
                             const data = {
                                 id: idUsuario,
-                                latitud: latitude.toString(),
-                                longitud: longitude.toString(),
+                                latitud: newLoc.latitude.toString(),
+                                longitud: newLoc.longitude.toString(),
                             };
-
                             const res = await actualizarCoordenadasUsuario(data);
-
-                            if (res.status === 1) {
-                                console.log("✅ Coordenadas actualizadas:", latitude, longitude);
-                                Toast.show({
-                                    type: "success",
-                                    text1: "Coordenadas enviadas",
-                                    text2: `Lat: ${latitude.toFixed(6)}, Lng: ${longitude.toFixed(6)}`,
-                                    position: "bottom",
-                                    visibilityTime: 1500,
-                                });
-                            } else {
-                                console.warn("⚠️ Error en actualización:", res.msg);
-                                Toast.show({
-                                    type: "error",
-                                    text1: "Error en actualización",
-                                    text2: res.msg || "No se pudo enviar coordenadas",
-                                    position: "bottom",
-                                    visibilityTime: 3000,
-                                });
-                            }
+                            setIsConnected(res?.status === 1);
                         } else {
-                            Toast.show({
-                                type: "info",
-                                text1: "Sin coordenadas válidas",
-                                text2: "Esperando ubicación GPS...",
-                                position: "bottom",
-                                visibilityTime: 2000,
-                            });
+                            setIsConnected(false);
                         }
                     } catch (err) {
-                        console.error("Error obteniendo ubicación:", err);
-                        Toast.show({
-                            type: "error",
-                            text1: "Error GPS",
-                            text2: "No se pudo obtener ubicación actual",
-                            position: "bottom",
-                            visibilityTime: 3000,
-                        });
+                        console.log("Error actualizando coordenadas:", err);
+                        setIsConnected(false);
                     }
-                }, 10000);
-            } catch (error) {
-                console.error("Error inicializando tracking:", error);
-                Toast.show({
-                    type: "error",
-                    text1: "Error inicializando tracking",
-                    text2: "Verifica permisos de ubicación",
-                    position: "bottom",
-                });
+                }, 300000);
+            } catch (err) {
+                console.log("Error inicial en GPS:", err);
+                setIsConnected(false);
             }
         };
 
@@ -98,15 +64,11 @@ const MapaScreen = () => {
 
         return () => {
             if (interval) clearInterval(interval);
-            Toast.show({
-                type: "info",
-                text1: "Tracking detenido",
-                text2: "Se detuvo el envío de coordenadas",
-                position: "bottom",
-                visibilityTime: 2000,
-            });
         };
-    }, [idUsuario, latitude, longitude]);
+    }, [idUsuario]);
+
+
+
 
 
     useEffect(() => {
@@ -193,8 +155,26 @@ const MapaScreen = () => {
         );
     }
 
+    if (!latitude || !longitude) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#007AFF" />
+                <Text>Cargando ubicación...</Text>
+            </View>
+        );
+    }
+
+
     return (
         <View style={styles.container}>
+            <View style={styles.statusContainer}>
+                <View
+                    style={[
+                        styles.statusDot,
+                        { backgroundColor: isConnected ? "#4CAF50" : "#F44336" },
+                    ]}
+                />
+            </View>
             <MapView
                 provider={PROVIDER_GOOGLE}
                 style={styles.map}
@@ -283,6 +263,32 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         shadowRadius: 4,
         elevation: 4,
+    },
+    statusContainer: {
+        position: "absolute",
+        top: 15,
+        left: 15,
+        zIndex: 999,
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "rgba(255,255,255,0.9)",
+        paddingVertical: 5,
+        paddingHorizontal: 5,
+        borderRadius: 20,
+        shadowColor: "#000",
+        shadowOpacity: 0.2,
+        shadowRadius: 3,
+        elevation: 3,
+    },
+    statusDot: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+    },
+    statusText: {
+        fontSize: 14,
+        color: "#333",
+        fontWeight: "500",
     },
     title: { fontWeight: "bold", fontSize: 16, marginBottom: 5 },
     text: { fontSize: 13, marginBottom: 3 },
