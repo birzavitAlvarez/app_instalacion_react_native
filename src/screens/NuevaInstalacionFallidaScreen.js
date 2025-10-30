@@ -410,12 +410,12 @@ const NuevaInstalacionFallidaScreen = () => {
           <TextInput
             style={[ubicacionConfirmada ? styles.inputUbicacionConfirmed : styles.inputUbicacion]}
             placeholder="Ubicación"
-            value={latitude && longitude ? `${latitude.toFixed(5)}, ${longitude.toFixed(5)}` : ''}
+            value={latitude && longitude ? `${latitude}, ${longitude}` : ''}
             editable={false}
           />
         </View>
         <TouchableOpacity onPress={handleGoogleMaps}>
-          <Text style={{ color: '#007AFF', marginTop: 8, fontSize: 12 }}>https://maps.google.com/?q={latitude.toFixed(5)},{longitude.toFixed(5)}</Text>
+          <Text style={{ color: '#007AFF', marginTop: 8, fontSize: 12 }}>https://maps.google.com/?q={latitude},{longitude}</Text>
         </TouchableOpacity>
         {locationError && !latitude && (
           <Text style={styles.errorText}>⚠️ {locationError}</Text>

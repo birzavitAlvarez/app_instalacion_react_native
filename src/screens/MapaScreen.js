@@ -1,34 +1,169 @@
-import React from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import { GOOGLE_MAPS_API_KEY, DEFAULT_REGION } from '../config/maps';
-
+import React, { useEffect, useState, useContext } from "react";
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from "react-native";
+import MapView, { Marker, Callout, PROVIDER_GOOGLE } from "react-native-maps";
+import Toast from "react-native-toast-message";
+import { GOOGLE_MAPS_API_KEY, DEFAULT_REGION } from "../config/maps";
+import { AuthContext } from "../context/AuthContext";
+import { getUsuarioPersonalArea, listaItemsRutaByTecnico, actualizarCoordenadasUsuario } from "../services/logisticaService";
+import { useLocation } from "../hooks/useLocation";
 const MapaScreen = () => {
-    // Marcadores de instalaciones (puedes conectar con tu API)
-    const markers = [
-        // {
-        //     id: 1,
-        //     latitude: -12.0464,
-        //     longitude: -77.0428,
-        //     title: 'Instalación 1',
-        //     description: 'Cliente: Juan Pérez',
-        // },
-    ];
+    const { userInfo } = useContext(AuthContext);
+    const idUsuario = userInfo?.idUsuario;
+    const [markers, setMarkers] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [location, setLocation] = useState(null);
+    const { latitude, longitude, isLoading: locationLoading, error: locationError, getCurrentLocation } = useLocation();
 
-    // Manejar cuando se presiona un marcador
-    const onMarkerPress = (marker) => {
-        Alert.alert(
-            marker.title,
-            marker.description,
-            [
-                { text: 'Ver detalles', onPress: () => console.log('Ver detalles:', marker.id) },
-                { text: 'Cerrar', style: 'cancel' },
-            ]
-        );
-    };
+    useEffect(() => {
+        if (!idUsuario) return;
 
-    // Verificar si la API Key está configurada
-    if (GOOGLE_MAPS_API_KEY === 'TU_GOOGLE_MAPS_API_KEY_AQUI') {
+        let interval = null;
+
+        const startAutoUpdate = async () => {
+            try {
+                await getCurrentLocation();
+
+                Toast.show({
+                    type: "info",
+                    text1: "Ubicación activa",
+                    text2: "Iniciando envío automático de coordenadas...",
+                    position: "bottom",
+                    visibilityTime: 2500,
+                });
+
+                interval = setInterval(async () => {
+                    try {
+                        await getCurrentLocation();
+
+                        if (latitude && longitude) {
+                            const data = {
+                                id: idUsuario,
+                                latitud: latitude.toString(),
+                                longitud: longitude.toString(),
+                            };
+
+                            const res = await actualizarCoordenadasUsuario(data);
+
+                            if (res.status === 1) {
+                                console.log("✅ Coordenadas actualizadas:", latitude, longitude);
+                                Toast.show({
+                                    type: "success",
+                                    text1: "Coordenadas enviadas",
+                                    text2: `Lat: ${latitude.toFixed(6)}, Lng: ${longitude.toFixed(6)}`,
+                                    position: "bottom",
+                                    visibilityTime: 1500,
+                                });
+                            } else {
+                                console.warn("⚠️ Error en actualización:", res.msg);
+                                Toast.show({
+                                    type: "error",
+                                    text1: "Error en actualización",
+                                    text2: res.msg || "No se pudo enviar coordenadas",
+                                    position: "bottom",
+                                    visibilityTime: 3000,
+                                });
+                            }
+                        } else {
+                            Toast.show({
+                                type: "info",
+                                text1: "Sin coordenadas válidas",
+                                text2: "Esperando ubicación GPS...",
+                                position: "bottom",
+                                visibilityTime: 2000,
+                            });
+                        }
+                    } catch (err) {
+                        console.error("Error obteniendo ubicación:", err);
+                        Toast.show({
+                            type: "error",
+                            text1: "Error GPS",
+                            text2: "No se pudo obtener ubicación actual",
+                            position: "bottom",
+                            visibilityTime: 3000,
+                        });
+                    }
+                }, 10000);
+            } catch (error) {
+                console.error("Error inicializando tracking:", error);
+                Toast.show({
+                    type: "error",
+                    text1: "Error inicializando tracking",
+                    text2: "Verifica permisos de ubicación",
+                    position: "bottom",
+                });
+            }
+        };
+
+        startAutoUpdate();
+
+        return () => {
+            if (interval) clearInterval(interval);
+            Toast.show({
+                type: "info",
+                text1: "Tracking detenido",
+                text2: "Se detuvo el envío de coordenadas",
+                position: "bottom",
+                visibilityTime: 2000,
+            });
+        };
+    }, [idUsuario, latitude, longitude]);
+
+
+    useEffect(() => {
+        const cargarDataMapa = async () => {
+            try {
+                if (!idUsuario) {
+                    Toast.show({
+                        type: "error",
+                        text1: "Error de sesión",
+                        text2: "No se encontró el ID del usuario",
+                        position: "bottom",
+                    });
+                    return;
+                }
+
+                const usuarioRes = await getUsuarioPersonalArea(idUsuario);
+                const dni = 73526408;
+
+                const rutaRes = await listaItemsRutaByTecnico(dni);
+                if (rutaRes.status === 1 && Array.isArray(rutaRes.data)) {
+                    const formatted = rutaRes.data
+                        .filter((item) => item.latitud && item.longitud)
+                        .map((item, index) => ({
+                            id: index,
+                            latitude: parseFloat(item.latitud),
+                            longitude: parseFloat(item.longitud),
+                            title: item.cliente,
+                            direccion: item.direccion,
+                            vendedor: item.vendedor,
+                            codigo: item.codigo_nevera,
+                            color: item.color || "red",
+                        }));
+                    setMarkers(formatted);
+                } else {
+                    Toast.show({
+                        type: "info",
+                        text1: "Sin resultados",
+                        text2: "No hay rutas para este técnico",
+                        position: "bottom",
+                    });
+                }
+            } catch (error) {
+                console.error("Error mapa:", error);
+                Toast.show({
+                    type: "error",
+                    text1: "Error al cargar mapa",
+                    text2: "Verifica tu conexión o API",
+                    position: "bottom",
+                });
+            } finally {
+                setLoading(false);
+            }
+        };
+        cargarDataMapa();
+    }, [idUsuario]);
+
+    if (GOOGLE_MAPS_API_KEY === 'API_KEY') {
         return (
             <View style={styles.warningContainer}>
                 <Text style={styles.warningTitle}>⚠️ API Key no configurada</Text>
@@ -49,19 +184,24 @@ const MapaScreen = () => {
         );
     }
 
+    if (loading) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#007AFF" />
+                <Text>Cargando mapa...</Text>
+            </View>
+        );
+    }
+
     return (
         <View style={styles.container}>
             <MapView
                 provider={PROVIDER_GOOGLE}
                 style={styles.map}
                 initialRegion={DEFAULT_REGION}
-                showsUserLocation={true}
-                showsMyLocationButton={true}
-                showsCompass={true}
-                showsScale={true}
-                loadingEnabled={true}
+                showsUserLocation
+                showsCompass
             >
-                {/* Renderizar marcadores */}
                 {markers.map((marker) => (
                     <Marker
                         key={marker.id}
@@ -69,17 +209,34 @@ const MapaScreen = () => {
                             latitude: marker.latitude,
                             longitude: marker.longitude,
                         }}
-                        title={marker.title}
-                        description={marker.description}
-                        onPress={() => onMarkerPress(marker)}
-                        pinColor="red"
-                    />
+                        pinColor={marker.color}
+                    >
+                        <Callout tooltip>
+                            <View style={styles.callout}>
+                                <Text style={styles.title}>{marker.title}</Text>
+                                <Text style={styles.text}>{marker.direccion}</Text>
+                                <Text style={styles.text}>Nevera: {marker.codigo}</Text>
+                                <Text style={styles.text}>Vendedor: {marker.vendedor}</Text>
+
+                                <TouchableOpacity
+                                    style={styles.button}
+                                    onPress={() => Toast.show({
+                                        type: "success",
+                                        text1: "Acción",
+                                        text2: `Ver detalles de ${marker.title}`,
+                                        position: "bottom",
+                                    })}
+                                >
+                                </TouchableOpacity>
+                            </View>
+                        </Callout>
+                    </Marker>
                 ))}
             </MapView>
+            <Toast />
         </View>
     );
 };
-
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -116,6 +273,26 @@ const styles = StyleSheet.create({
         borderRadius: 5,
         marginVertical: 10,
     },
+    callout: {
+        backgroundColor: "white",
+        borderRadius: 10,
+        padding: 10,
+        width: 200,
+        shadowColor: "#000",
+        shadowOpacity: 0.2,
+        shadowOffset: { width: 0, height: 2 },
+        shadowRadius: 4,
+        elevation: 4,
+    },
+    title: { fontWeight: "bold", fontSize: 16, marginBottom: 5 },
+    text: { fontSize: 13, marginBottom: 3 },
+    button: {
+        marginTop: 8,
+        backgroundColor: "#007AFF",
+        paddingVertical: 6,
+        borderRadius: 6,
+    },
+    buttonText: { color: "white", textAlign: "center", fontWeight: "600" },
 });
 
 export default MapaScreen;
