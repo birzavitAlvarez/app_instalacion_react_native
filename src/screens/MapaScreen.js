@@ -6,6 +6,7 @@ import { GOOGLE_MAPS_API_KEY, DEFAULT_REGION } from "../config/maps";
 import { AuthContext } from "../context/AuthContext";
 import { getUsuarioPersonalArea, listaItemsRutaByTecnico, actualizarCoordenadasUsuario } from "../services/logisticaService";
 import { useLocation } from "../hooks/useLocation";
+import { BlurView } from "@react-native-community/blur";
 const MapaScreen = () => {
     const { userInfo } = useContext(AuthContext);
     const idUsuario = userInfo?.idUsuario;
@@ -67,10 +68,6 @@ const MapaScreen = () => {
         };
     }, [idUsuario]);
 
-
-
-
-
     useEffect(() => {
         const cargarDataMapa = async () => {
             try {
@@ -85,22 +82,74 @@ const MapaScreen = () => {
                 }
 
                 const usuarioRes = await getUsuarioPersonalArea(idUsuario);
-                const dni = 73526408;
-
+                const dni = usuarioRes.dni;
                 const rutaRes = await listaItemsRutaByTecnico(dni);
+
                 if (rutaRes.status === 1 && Array.isArray(rutaRes.data)) {
-                    const formatted = rutaRes.data
-                        .filter((item) => item.latitud && item.longitud)
-                        .map((item, index) => ({
-                            id: index,
-                            latitude: parseFloat(item.latitud),
-                            longitude: parseFloat(item.longitud),
-                            title: item.cliente,
-                            direccion: item.direccion,
-                            vendedor: item.vendedor,
-                            codigo: item.codigo_nevera,
-                            color: item.color || "red",
-                        }));
+                    const grouped = Object.values(
+                        rutaRes.data.reduce((acc, item) => {
+                            const key = `${item.latitud},${item.longitud},${item.cliente},${item.vendedor},${item.direccion}`;
+                            if (!acc[key]) {
+                                acc[key] = {
+                                    ...item,
+                                    neveras: [],
+                                };
+                            }
+                            acc[key].neveras.push(item.codigo_nevera);
+                            return acc;
+                        }, {})
+                    );
+
+                    let formatted = grouped.map((item, index) => ({
+                        id: index,
+                        latitude: parseFloat(item.latitud),
+                        longitude: parseFloat(item.longitud),
+                        title: item.cliente,
+                        direccion: item.direccion,
+                        vendedor: item.vendedor,
+                        neveras: item.neveras,
+                        color: item.color || "red",
+                    }));
+
+                    const ajustarCoordenadasDuplicadas = (markers) => {
+                        const seen = {};
+                        const EARTH_RADIUS = 6371000;
+                        const METERS_OFFSET = 50;
+
+                        const metersToDegrees = (meters) => (meters / EARTH_RADIUS) * (180 / Math.PI);
+
+                        return markers.map((m, index) => {
+                            const key = `${m.latitude.toFixed(5)},${m.longitude.toFixed(5)}`;
+
+                            if (seen[key]) {
+                                const count = seen[key].length;
+
+                                const angle = (count * (2 * Math.PI)) / 6;
+
+                                const offsetLat = metersToDegrees(METERS_OFFSET * Math.cos(angle));
+                                const offsetLng =
+                                    metersToDegrees(METERS_OFFSET * Math.sin(angle)) /
+                                    Math.cos(m.latitude * Math.PI / 180);
+
+                                seen[key].push(m.id);
+
+                                return {
+                                    ...m,
+                                    latitude: m.latitude + offsetLat,
+                                    longitude: m.longitude + offsetLng,
+                                    desplazado: true,
+                                };
+                            } else {
+                                seen[key] = [m.id];
+                                return { ...m, desplazado: false };
+                            }
+                        });
+                    };
+
+
+
+                    formatted = ajustarCoordenadasDuplicadas(formatted);
+
                     setMarkers(formatted);
                 } else {
                     Toast.show({
@@ -122,8 +171,10 @@ const MapaScreen = () => {
                 setLoading(false);
             }
         };
+
         cargarDataMapa();
     }, [idUsuario]);
+
 
     if (GOOGLE_MAPS_API_KEY === 'API_KEY') {
         return (
@@ -142,24 +193,6 @@ const MapaScreen = () => {
                     3. Crea una API Key{'\n'}
                     4. Pégala en el archivo maps.js
                 </Text>
-            </View>
-        );
-    }
-
-    if (loading) {
-        return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#007AFF" />
-                <Text>Cargando mapa...</Text>
-            </View>
-        );
-    }
-
-    if (!latitude || !longitude) {
-        return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#007AFF" />
-                <Text>Cargando ubicación...</Text>
             </View>
         );
     }
@@ -195,33 +228,48 @@ const MapaScreen = () => {
                             <View style={styles.callout}>
                                 <Text style={styles.title}>{marker.title}</Text>
                                 <Text style={styles.text}>{marker.direccion}</Text>
-                                <Text style={styles.text}>Nevera: {marker.codigo}</Text>
                                 <Text style={styles.text}>Vendedor: {marker.vendedor}</Text>
 
-                                <TouchableOpacity
-                                    style={styles.button}
-                                    onPress={() => Toast.show({
-                                        type: "success",
-                                        text1: "Acción",
-                                        text2: `Ver detalles de ${marker.title}`,
-                                        position: "bottom",
-                                    })}
-                                >
-                                </TouchableOpacity>
+                                <Text style={[styles.text, { marginTop: 6, fontWeight: "bold" }]}>
+                                    Neveras:
+                                </Text>
+                                {marker.neveras.map((n, i) => (
+                                    <Text key={i} style={styles.text}>• {n}</Text>
+                                ))}
+
+                                {marker.desplazado && (
+                                    <Text style={{ color: "orange", marginTop: 4, fontSize: 12 }}>
+                                        Posición ajustada para evitar superposición
+                                    </Text>
+                                )}
                             </View>
                         </Callout>
+
                     </Marker>
                 ))}
             </MapView>
+            {(loading || !latitude || !longitude) && (
+                <View style={styles.loadingOverlay}>
+                    {Platform.OS === "ios" ? (
+                        <BlurView style={styles.blurView} blurType="light" blurAmount={8} />
+                    ) : (
+                        <View style={styles.blurFallback} />
+                    )}
+                    <View style={styles.loadingContent}>
+                        <ActivityIndicator size="large" color="#007AFF" />
+                        <Text style={styles.loadingText}>
+                            {loading ? "Cargando mapa..." : "Obteniendo ubicación..."}
+                        </Text>
+                    </View>
+                </View>
+            )}
+
             <Toast />
         </View>
     );
 };
 const styles = StyleSheet.create({
     container: {
-        flex: 1,
-    },
-    map: {
         flex: 1,
     },
     warningContainer: {
@@ -266,8 +314,8 @@ const styles = StyleSheet.create({
     },
     statusContainer: {
         position: "absolute",
-        top: 15,
-        left: 15,
+        bottom: 15,
+        right: 15,
         zIndex: 999,
         flexDirection: "row",
         alignItems: "center",
@@ -299,6 +347,46 @@ const styles = StyleSheet.create({
         borderRadius: 6,
     },
     buttonText: { color: "white", textAlign: "center", fontWeight: "600" },
+    map: {
+        ...StyleSheet.absoluteFillObject,
+    },
+
+    loadingOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        justifyContent: "center",
+        alignItems: "center",
+        zIndex: 20,
+    },
+    blurView: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    loadingContent: {
+        borderRadius: 12,
+        padding: 20,
+        alignItems: "center",
+    },
+    loadingText: {
+        marginTop: 10,
+        fontSize: 16,
+        fontWeight: "500",
+        color: "#fff",
+    },
+    callout: {
+        backgroundColor: "#fff",
+        borderRadius: 8,
+        padding: 10,
+        width: 180,
+        shadowColor: "#000",
+        shadowOpacity: 0.2,
+        shadowRadius: 5,
+    },
+    title: {
+        fontWeight: "bold",
+    },
+    blurFallback: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: "rgba(31, 31, 31, 0.6)",
+    },
 });
 
 export default MapaScreen;
