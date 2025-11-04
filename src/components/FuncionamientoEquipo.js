@@ -6,7 +6,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
-  ScrollView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
@@ -17,8 +16,17 @@ const FuncionamientoEquipo = ({
   onDeletePhoto,
   onBack,
 }) => {
+  const lugaresInstalacion = [
+    'PDV Nevera operativa',
+    'PDV Nevera sin uso',
+    'Patio Distribuidor',
+    'Patio FrioHielos'
+  ];
+
   return (
     <View style={styles.container}>
+      
+
       {/* Sección de Inspección Previa */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>INSPECCION PREVIA DE NEVERA</Text>
@@ -274,7 +282,7 @@ const FuncionamientoEquipo = ({
 
         <View style={styles.checkboxContainer}>
           <Icon name="grid-on" size={20} color="#2b4a8b" style={styles.checkboxIcon} />
-          <Text style={[styles.checkboxLabel, { marginLeft: 8 }]}>CIERRE DE REJILLA</Text>
+          <Text style={[styles.checkboxLabel, styles.checkboxLabelWithIcon]}>CIERRE DE REJILLA</Text>
           <TouchableOpacity
             style={[styles.checkbox, formData.cierreRejilla && styles.checkboxChecked]}
             onPress={() => onChangeField('cierreRejilla', !formData.cierreRejilla)}
@@ -282,6 +290,37 @@ const FuncionamientoEquipo = ({
             {formData.cierreRejilla && <Icon name="check" size={18} color="#fff" />}
           </TouchableOpacity>
         </View>
+      </View>
+
+      {/* Sección de Lugar de Instalación */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>LUGAR DE INSTALACIÓN</Text>
+        
+        {lugaresInstalacion.map((lugar, index) => (
+          <TouchableOpacity
+            key={index}
+            style={[
+              styles.optionButton,
+              formData.lugarInstalacion === lugar && styles.optionButtonSelected
+            ]}
+            onPress={() => onChangeField('lugarInstalacion', lugar)}
+          >
+            <View style={[
+              styles.radioButton,
+              formData.lugarInstalacion === lugar && styles.radioButtonSelected
+            ]}>
+              {formData.lugarInstalacion === lugar && (
+                <View style={styles.radioButtonInner} />
+              )}
+            </View>
+            <Text style={[
+              styles.optionText,
+              formData.lugarInstalacion === lugar && styles.optionTextSelected
+            ]}>
+              {lugar}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
     </View>
   );
@@ -326,6 +365,9 @@ const styles = StyleSheet.create({
     color: '#333',
     flex: 1,
   },
+  checkboxLabelWithIcon: {
+    marginLeft: 8,
+  },
   checkboxIcon: {
     marginRight: 4,
   },
@@ -360,17 +402,21 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderStyle: 'dashed',
     overflow: 'hidden',
+    width: '100%',
+    aspectRatio: 4 / 3,
+    backgroundColor: '#F5F5F5',
   },
   photoPlaceholder: {
-    height: 150,
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f5f5f5',
   },
   photo: {
     width: '100%',
-    height: 150,
-    resizeMode: 'cover',
+    height: '100%',
+    resizeMode: 'contain',
+    backgroundColor: '#fff',
   },
   deleteButton: {
     flexDirection: 'row',
@@ -382,6 +428,51 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#e74c3c',
     marginLeft: 4,
+  },
+  // Estilos para Lugar de Instalación
+  optionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    backgroundColor: '#fff',
+    marginBottom: 10,
+  },
+  optionButtonSelected: {
+    borderColor: '#2b4a8b',
+    backgroundColor: '#e8eef9',
+  },
+  radioButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#3F51B5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    marginRight: 12,
+  },
+  radioButtonSelected: {
+    borderColor: '#2b4a8b',
+  },
+  radioButtonInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#2b4a8b',
+  },
+  optionText: {
+    fontSize: 15,
+    color: '#333',
+    flex: 1,
+  },
+  optionTextSelected: {
+    color: '#2b4a8b',
+    fontWeight: '600',
   },
 });
 

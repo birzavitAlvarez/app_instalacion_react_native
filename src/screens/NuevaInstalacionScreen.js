@@ -10,6 +10,8 @@ import {
   LogBox,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
+import { postInstalacionNevera, updateGestionAndProduction } from '../services/instalacionService';
+import { useAuth } from '../hooks/useAuth';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import DatosGenerales from '../components/DatosGenerales';
 import FuncionamientoEquipo from '../components/FuncionamientoEquipo';
@@ -20,8 +22,8 @@ import BarcodeScanner from '../components/BarcodeScanner';
 import ValidationModal from '../components/ValidationModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import VoiceInput from '../components/VoiceInput';
-import { takePhotoCompressed } from '../utils/imageUtil';
-import { requestCameraPermission } from '../utils/permissions';
+import { takePhotoCompressed, pickFromGalleryCompressed } from '../utils/imageUtil';
+import { requestCameraPermission, requestGalleryPermission } from '../utils/permissions';
 import { LocationContext } from '../context/LocationContext';
 import { getDataByCodNevera, validateNeveraStatus, validateTechnicianSync } from '../services/neveraService';
 import { uploadImageToServer } from '../services/uploadService';
@@ -32,6 +34,9 @@ LogBox.ignoreLogs([
 ]);
 
 const NuevaInstalacionScreen = ({ navigation }) => {
+  // Obtener usuario autenticado
+  const { idUsuario } = useAuth();
+
   // Función helper para formatear fecha en formato YYYY-MM-DD HH:MM:SS
   const formatDateTime = (date) => {
     const d = new Date(date);
@@ -48,7 +53,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
   const { location, getCurrentLocation } = useContext(LocationContext);
 
   // Control de pasos (1-5: Datos Generales, Funcionamiento Equipo, Observaciones, Firma Cliente, Vista Previa)
-  const [currentStep, setCurrentStep] = useState(4);
+  const [currentStep, setCurrentStep] = useState(1);
 
   // Estado del formulario - Paso 1
   const [formDataStep1, setFormDataStep1] = useState({
@@ -68,6 +73,9 @@ const NuevaInstalacionScreen = ({ navigation }) => {
 
   // Estado del formulario - Paso 2
   const [formDataStep2, setFormDataStep2] = useState({
+    // Lugar de Instalación (nuevo)
+    lugarInstalacion: '',
+    
     // Inspección Previa
     neveraEnergizadaPrev: false,
     compresorEnciendePrev: false,
@@ -96,6 +104,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     fotoObservacion1: null,
     observacion2: '',
     fotoObservacion2: null,
+    showObservacion2: false, // Controla si se muestra la segunda observación
   });
 
   // Estado del formulario - Paso 4
@@ -119,6 +128,8 @@ const NuevaInstalacionScreen = ({ navigation }) => {
   const [currentVoiceField, setCurrentVoiceField] = useState(null);
   const [currentVoiceFieldLabel, setCurrentVoiceFieldLabel] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showImageSourceModal, setShowImageSourceModal] = useState(false);
+  const [currentPhotoField, setCurrentPhotoField] = useState(null);
 
   // Persistencia de datos de instalación
   const [instalacionData, setInstalacionData] = useState({
@@ -160,10 +171,10 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     fotoFachadeNeveraPath: '',
     
     // Datos de validación
-    transmisionRedCelular: null,
-    alertaDesconexion: null,
-    alertaReconexion: null,
-    transmisionGps: null,
+    transmisionRedCelular: "SI",
+    alertaDesconexion: "SI",
+    alertaReconexion: "SI",
+    transmisionGps: "SI",
     
     // Inspección posterior
     cierreRejilla: 'NO',
@@ -218,16 +229,27 @@ const NuevaInstalacionScreen = ({ navigation }) => {
 
   // Autocompletar datos cuando el código de nevera tiene >= 10 caracteres
   useEffect(() => {
-    const fetchNeveraData = async () => {
-      const codigoNevera = formDataStep1.codigoNevera.trim();
+    // Agregar una bandera para controlar si ya se consultó este código
+    const codigoNevera = formDataStep1.codigoNevera.trim();
+    
+    // Solo consultar si tiene EXACTAMENTE 10 o más caracteres, no está vacío y no se ha consultado antes
+    if (codigoNevera.length >= 10) {
+      // Verificar si ya consultamos este código antes
+      if (instalacionData.codigo === codigoNevera) {
+        console.log('Este código ya fue consultado anteriormente, no se volverá a consultar');
+        return;
+      }
       
-      // Solo consultar si tiene EXACTAMENTE 10 o más caracteres y no está vacío
-      if (codigoNevera.length >= 10) {
-        setLoading(true);
-        
-        try {
-          console.log('🔍 Consultando datos para código:', codigoNevera);
+      setLoading(true);
+      
+      try {
+        console.log('🔍 Consultando datos para código:', codigoNevera);
+        const fetchNeveraData = async () => {
           const data = await getDataByCodNevera(codigoNevera);
+          
+          // Guardar el IMEI actual antes de actualizar
+          const currentImei = formDataStep1.imei;
+          const isManualImei = currentImei && currentImei !== 'sin imei' && currentImei.length > 0;
           
           // Autocompletar campos solo si vienen datos
           setFormDataStep1(prev => ({
@@ -240,7 +262,14 @@ const NuevaInstalacionScreen = ({ navigation }) => {
             distrito: data.distrito || prev.distrito,
             direccion: data.direccion || prev.direccion,
             iccidChip: data.iccid_chip || prev.iccidChip,
-            imei: data.imei_dispositivo || prev.imei,
+            // Preservar el IMEI si ya fue ingresado manualmente
+            imei: isManualImei ? currentImei : (data.imei_dispositivo || prev.imei),
+          }));
+          
+          // Marcar este código como ya consultado
+          setInstalacionData(prev => ({
+            ...prev,
+            codigo: codigoNevera
           }));
           
           Toast.show({
@@ -252,32 +281,36 @@ const NuevaInstalacionScreen = ({ navigation }) => {
           });
           
           console.log('Datos autocompletados:', data);
-        } catch (error) {
-          console.error('Error obteniendo datos de nevera:', error);
-          // Silenciar error 400 (código no encontrado o incompleto)
-          if (error.response?.status === 400) {
-            console.log('Código no encontrado o incompleto');
-          } else {
-            // Solo mostrar toast para otros errores
-            Toast.show({
-              type: 'error',
-              text1: 'Error de conexión',
-              text2: 'No se pudo consultar los datos',
-              position: 'bottom',
-              visibilityTime: 2000,
-            });
-          }
-        } finally {
-          setLoading(false);
+        };
+        
+        // Ejecutar la consulta
+        fetchNeveraData();
+        
+      } catch (error) {
+        console.error('Error obteniendo datos de nevera:', error);
+        // Silenciar error 400 (código no encontrado o incompleto)
+        if (error.response?.status === 400) {
+          console.log('Código no encontrado o incompleto');
+        } else {
+          // Solo mostrar toast para otros errores
+          Toast.show({
+            type: 'error',
+            text1: 'Error de conexión',
+            text2: 'No se pudo consultar los datos',
+            position: 'bottom',
+            visibilityTime: 2000,
+          });
         }
+      } finally {
+        setLoading(false);
       }
-    };
+    }
 
     // Debounce para evitar consultas mientras escribe
-    const timeoutId = setTimeout(fetchNeveraData, 800);
+    const timeoutId = setTimeout(() => {}, 800);
     
     return () => clearTimeout(timeoutId);
-  }, [formDataStep1.codigoNevera]);
+  }, [formDataStep1.codigoNevera, formDataStep1.imei, instalacionData.codigo]);
 
   // Manejar cambio de campo - Paso 2
   const handleChangeFieldStep2 = (fieldName, value) => {
@@ -354,15 +387,44 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     setCurrentVoiceFieldLabel('');
   };
 
-  // Manejar cambio de firma
-  const handleSignatureChange = (signatureData) => {
+  // Manejar cambio de firma - subir inmediatamente al servidor
+  const handleSignatureChange = async (signatureData) => {
     if (signatureData && signatureData.uri) {
-      setFormDataStep4({ ...formDataStep4, fotoFirma: signatureData.uri });
-      Toast.show({
-        type: 'success',
-        text1: 'Firma guardada',
-        position: 'bottom',
-      });
+      try {
+        setLoading(true);
+        
+        // Subir firma al servidor
+        console.log('📤 Subiendo firma del cliente al servidor...');
+        const filename = await uploadImageToServer(signatureData.uri, instalacionData.codigo);
+        console.log('✅ Firma subida:', filename);
+        
+        // Construir URL de previsualización
+        const previewUrl = `https://phuyu-iot.com/NESTLE-API-TECNICOS/public/${filename}`;
+        
+        // Guardar URL de previsualización y filename
+        setFormDataStep4({ 
+          ...formDataStep4, 
+          fotoFirma: previewUrl,
+          fotoFirmaFileName: filename
+        });
+        
+        Toast.show({
+          type: 'success',
+          text1: 'Firma guardada y subida',
+          text2: 'Firma guardada en el servidor',
+          position: 'bottom',
+        });
+      } catch (error) {
+        console.error('Error subiendo firma:', error);
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: error.message || 'No se pudo subir la firma',
+          position: 'bottom',
+        });
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -395,7 +457,33 @@ const NuevaInstalacionScreen = ({ navigation }) => {
   };
 
   // Manejar toma de fotos - Pasos 2 y 3
-  const handleTakePhoto = async (fieldName) => {
+  const handleTakePhoto = (fieldName) => {
+    setCurrentPhotoField(fieldName);
+    setShowImageSourceModal(true);
+  };
+
+  // Mapeo de claves para Paso 2: nombre corto -> campo de estado con prefijo 'foto'
+  const mapStep2PhotoKey = (key) => {
+    switch (key) {
+      case 'inspeccionPrevia':
+        return 'fotoInspeccionPrevia';
+      case 'cajaMetalicaAbierta':
+        return 'fotoCajaMetalicaAbierta';
+      case 'empalmeCable':
+        return 'fotoEmpalmeCable';
+      case 'cajaMetalicaCerrada':
+        return 'fotoCajaMetalicaCerrada';
+      case 'fachadaNevera':
+        return 'fotoFachadaNevera';
+      default:
+        return key; // Para Paso 3 viene ya como 'fotoObservacionX'
+    }
+  };
+
+  // Tomar foto desde cámara
+  const handleTakeFromCamera = async () => {
+    setShowImageSourceModal(false);
+    
     const hasPermission = await requestCameraPermission();
     if (!hasPermission) return;
 
@@ -403,39 +491,128 @@ const NuevaInstalacionScreen = ({ navigation }) => {
       setLoading(true);
       const result = await takePhotoCompressed();
       if (result) {
+        // Subir imagen al servidor
+        console.log('📤 Subiendo imagen al servidor...');
+        const filename = await uploadImageToServer(result.uri, instalacionData.codigo);
+        console.log('✅ Imagen subida:', filename);
+        
+        // Construir URL de previsualización
+        const previewUrl = `https://phuyu-iot.com/NESTLE-API-TECNICOS/public/${filename}`;
+        
+        // Guardar tanto la URL de previsualización como el filename
         if (currentStep === 2) {
-          setFormDataStep2({ ...formDataStep2, [fieldName]: result.uri });
+          const stateKey = mapStep2PhotoKey(currentPhotoField);
+          setFormDataStep2({ 
+            ...formDataStep2, 
+            [stateKey]: previewUrl,
+            [`${stateKey}FileName`]: filename
+          });
         } else if (currentStep === 3) {
-          setFormDataStep3({ ...formDataStep3, [fieldName]: result.uri });
+          const stateKey = currentPhotoField; // Ya viene como 'fotoObservacion1|2'
+          setFormDataStep3({ 
+            ...formDataStep3, 
+            [stateKey]: previewUrl,
+            [`${stateKey}FileName`]: filename
+          });
         }
+        
         Toast.show({
           type: 'success',
-          text1: 'Foto capturada',
+          text1: 'Foto capturada y subida',
+          text2: 'Imagen guardada en el servidor',
           position: 'bottom',
         });
       }
     } catch (error) {
+      console.error('Error en handleTakeFromCamera:', error);
       Toast.show({
         type: 'error',
         text1: 'Error',
-        text2: 'No se pudo tomar la foto',
+        text2: error.message || 'No se pudo tomar la foto',
         position: 'bottom',
       });
     } finally {
       setLoading(false);
+      setCurrentPhotoField(null);
+    }
+  };
+
+  // Seleccionar foto desde galería
+  const handlePickFromGallery = async () => {
+    setShowImageSourceModal(false);
+    
+    const hasPermission = await requestGalleryPermission();
+    if (!hasPermission) return;
+
+    try {
+      setLoading(true);
+      const result = await pickFromGalleryCompressed();
+      if (result) {
+        // Subir imagen al servidor
+        console.log('📤 Subiendo imagen al servidor...');
+        const filename = await uploadImageToServer(result.uri, instalacionData.codigo);
+        console.log('✅ Imagen subida:', filename);
+        
+        // Construir URL de previsualización
+        const previewUrl = `https://phuyu-iot.com/NESTLE-API-TECNICOS/public/${filename}`;
+        
+        // Guardar tanto la URL de previsualización como el filename
+        if (currentStep === 2) {
+          const stateKey = mapStep2PhotoKey(currentPhotoField);
+          setFormDataStep2({ 
+            ...formDataStep2, 
+            [stateKey]: previewUrl,
+            [`${stateKey}FileName`]: filename
+          });
+        } else if (currentStep === 3) {
+          const stateKey = currentPhotoField;
+          setFormDataStep3({ 
+            ...formDataStep3, 
+            [stateKey]: previewUrl,
+            [`${stateKey}FileName`]: filename
+          });
+        }
+        
+        Toast.show({
+          type: 'success',
+          text1: 'Imagen seleccionada y subida',
+          text2: 'Imagen guardada en el servidor',
+          position: 'bottom',
+        });
+      }
+    } catch (error) {
+      console.error('Error en handlePickFromGallery:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: error.message || 'No se pudo seleccionar la imagen',
+        position: 'bottom',
+      });
+    } finally {
+      setLoading(false);
+      setCurrentPhotoField(null);
     }
   };
 
   // Manejar eliminación de fotos - Pasos 2 y 3
   const handleDeletePhoto = (fieldName) => {
     if (currentStep === 2) {
-      setFormDataStep2({ ...formDataStep2, [fieldName]: null });
+      setFormDataStep2({ 
+        ...formDataStep2, 
+        [fieldName]: null,
+        [`${fieldName}FileName`]: null
+      });
     } else if (currentStep === 3) {
-      setFormDataStep3({ ...formDataStep3, [fieldName]: null });
+      setFormDataStep3({ 
+        ...formDataStep3, 
+        [fieldName]: null,
+        [`${fieldName}FileName`]: null
+      });
     }
     Toast.show({
       type: 'info',
       text1: 'Foto eliminada',
+      text2: 'Puede tomar una nueva foto',
       position: 'bottom',
     });
   };
@@ -543,6 +720,11 @@ const NuevaInstalacionScreen = ({ navigation }) => {
   // Volver al paso anterior
   const handleBack = () => {
     if (currentStep === 2) {
+      // Al volver al paso 1, actualizar formDataStep1 con los datos de instalacionData
+      setFormDataStep1(prev => ({
+        ...prev,
+        imei: instalacionData.imeiDispositivo || prev.imei
+      }));
       setCurrentStep(1);
     } else if (currentStep === 3) {
       setCurrentStep(2);
@@ -555,6 +737,18 @@ const NuevaInstalacionScreen = ({ navigation }) => {
 
   // Avanzar paso 2 → Paso 3 (con validación igual que paso 1 → 2)
   const handleNextStep2 = async () => {
+    // Validar que se haya seleccionado un lugar de instalación
+    if (!formDataStep2.lugarInstalacion) {
+      Toast.show({
+        type: 'error',
+        text1: 'LUGAR DE INSTALACIÓN REQUERIDO',
+        text2: 'Debe seleccionar un lugar de instalación',
+        position: 'bottom',
+        visibilityTime: 3000,
+      });
+      return;
+    }
+    
     setLoading(true);
 
     try {
@@ -574,24 +768,38 @@ const NuevaInstalacionScreen = ({ navigation }) => {
         return;
       }
 
+      // Validar IMEI antes de sincronización
+      const imei = formDataStep1.imei;
+      if (!imei || imei.trim() === '' || imei === 'sin imei') {
+        setLoading(false);
+        Toast.show({
+          type: 'error',
+          text1: 'Falta el IMEI',
+          text2: 'Debes ingresar o escanear el IMEI del dispositivo antes de continuar.',
+          position: 'bottom',
+          visibilityTime: 3500,
+        });
+        return;
+      }
+
       console.log('Estado de nevera validado (Paso 2):', statusResponse);
 
       // Paso 2: Obtener ubicación y validar sincronización
       const currentLocation = await getCurrentLocation();
       const currentDateTime = formatDateTime(new Date());
-      
+
       console.log('Validando sincronización (Paso 2) con:', {
         fecha: currentDateTime,
         latitud: currentLocation.latitude,
         longitud: currentLocation.longitude,
-        imei: formDataStep1.imei,
+        imei,
       });
 
       const syncResponse = await validateTechnicianSync(
         currentDateTime,
         currentLocation.latitude,
         currentLocation.longitude,
-        formDataStep1.imei,
+        imei,
         2
       );
 
@@ -681,124 +889,102 @@ const NuevaInstalacionScreen = ({ navigation }) => {
   // Generar PDF y avanzar al Paso 5 (Vista Previa)
   const handleGeneratePDF = async () => {
     setPdfLoading(true);
-    
     try {
-      console.log('Guardando datos del Paso 4 (Firma Cliente)');
-      
-      // Actualizar instalacionData con los datos del Paso 4
+      // Consolidar datos para el DTO
+      const firmaFileName = formDataStep4.fotoFirmaFileName || null;
+      const now = new Date();
+      const createdAt = now.toISOString().slice(0, 19); // yyyy-MM-ddTHH:mm:ss
+      // Mapear body exactamente como el ejemplo proporcionado
       const updatedInstalacionData = {
-        ...instalacionData,
-        // Firma del cliente
-        clienteRespFirmaPath: formDataStep4.fotoFirma,
+        codigo: formDataStep1.codigoNevera,
+        modelo: formDataStep1.modelo,
+        distribuidor: formDataStep1.distribuidor,
+        clienteNombres: formDataStep1.cliente,
+        departamento: formDataStep1.departamento,
+        provincia: formDataStep1.provincia,
+        distrito: formDataStep1.distrito,
+        direccion: formDataStep1.direccion,
+        iccidChip: formDataStep1.iccidChip,
+        imeiDispositivo: formDataStep1.imei,
+        otro: formDataStep1.otro,
+        iprevNeveraEnergizada: booleanToSiNo(formDataStep2.neveraEnergizadaPrev),
+        iprevCompresorEnciende: booleanToSiNo(formDataStep2.compresorEnciendePrev),
+        iprevTermostatoOp: booleanToSiNo(formDataStep2.termostatoOperativoPrev),
+        iprevEstaCableElec: booleanToSiNo(formDataStep2.cableadoBuenasCondPrev),
+        iprevComentario: formDataStep2.comentario || null,
+        iprevFoto: formDataStep2.fotoInspeccionPreviaFileName ? 'OK' : null,
+        iprevFotoPath: formDataStep2.fotoInspeccionPreviaFileName || null,
+        latitud: instalacionData.latitud || '',
+        longitud: instalacionData.longitud || '',
+        fotoDispInstaCajaMetalicaAbierta: null,
+        fotoDispInstaCajaMetalicaAbiertaPath: null,
+        fotoEmpalmeCable: null,
+        fotoEmpalmeCablePath: null,
+        fotoDispInstaCajaMetalicaCerrada: null,
+        fotoDispInstaCajaMetalicaCerradaPath: null,
+        fotoFachadaNevera: null,
+        fotoFachadeNeveraPath: null,
+        transmisionRedCelular: 'SI',
+        alertaDesconexion: 'SI',
+        alertaReconexion: 'SI',
+        transmisionGps: 'SI',
+        cierreRejilla: booleanToSiNo(formDataStep2.cierreRejilla),
+        ipostNeveraEnergizada: booleanToSiNo(formDataStep2.neveraEnergizadaPost),
+        ipostCompresorEnciende: booleanToSiNo(formDataStep2.compresorPost),
+        ipostTermostatoOp: booleanToSiNo(formDataStep2.termostatoPost),
+        ipostEstaCableElec: booleanToSiNo(formDataStep2.cableadoElectricoPost),
+        observacion1: formDataStep3.observacion1 || null,
+        fotoObservacion1: formDataStep3.fotoObservacion1FileName ? 'OK' : null,
+        fotoObservacion1Path: formDataStep3.fotoObservacion1FileName || null,
+        observacion2: formDataStep3.observacion2 || null,
+        fotoObservacion2: formDataStep3.fotoObservacion2FileName ? 'OK' : null,
+        fotoObservacion2Path: formDataStep3.fotoObservacion2FileName || null,
+        tecnicoFirma: null,
+        tecnicoFirmaPath: null,
+        tecnicoNombreApellido: null,
+        tecnicoDni: null,
+        clienteRespFirma: formDataStep4.fotoFirmaFileName ? 'OK' : null,
+        clienteRespFirmaPath: formDataStep4.fotoFirmaFileName || null,
         clienteRespNombreApellido: formDataStep4.nombresApellidos,
         clienteRespDni: formDataStep4.dniCliente,
+        idNevera: null,
+        idCliente: null,
+        idUsuario: idUsuario || null,
+        pdfPath: '',
+        createdAt,
       };
-      
       setInstalacionData(updatedInstalacionData);
-      
-      console.log('Datos del Paso 4 guardados');
-      console.log('Subiendo imágenes al servidor...');
-      
-      // Preparar array de imágenes a subir
-      const imagesToUpload = [];
-      
-      // Foto inspección previa
-      if (updatedInstalacionData.iprevFotoPath) {
-        imagesToUpload.push({
-          uri: updatedInstalacionData.iprevFotoPath,
-          fieldName: 'iprevFoto'
-        });
-      }
-      
-      // Fotos de instalación
-      if (updatedInstalacionData.fotoDispInstaCajaMetalicaAbiertaPath) {
-        imagesToUpload.push({
-          uri: updatedInstalacionData.fotoDispInstaCajaMetalicaAbiertaPath,
-          fieldName: 'fotoDispInstaCajaMetalicaAbierta'
-        });
-      }
-      if (updatedInstalacionData.fotoEmpalmeCablePath) {
-        imagesToUpload.push({
-          uri: updatedInstalacionData.fotoEmpalmeCablePath,
-          fieldName: 'fotoEmpalmeCable'
-        });
-      }
-      if (updatedInstalacionData.fotoDispInstaCajaMetalicaCerradaPath) {
-        imagesToUpload.push({
-          uri: updatedInstalacionData.fotoDispInstaCajaMetalicaCerradaPath,
-          fieldName: 'fotoDispInstaCajaMetalicaCerrada'
-        });
-      }
-      if (updatedInstalacionData.fotoFachadeNeveraPath) {
-        imagesToUpload.push({
-          uri: updatedInstalacionData.fotoFachadeNeveraPath,
-          fieldName: 'fotoFachadaNevera'
-        });
-      }
-      
-      // Fotos de observaciones
-      if (updatedInstalacionData.fotoObservacion1Path) {
-        imagesToUpload.push({
-          uri: updatedInstalacionData.fotoObservacion1Path,
-          fieldName: 'fotoObservacion1'
-        });
-      }
-      if (updatedInstalacionData.fotoObservacion2Path) {
-        imagesToUpload.push({
-          uri: updatedInstalacionData.fotoObservacion2Path,
-          fieldName: 'fotoObservacion2'
-        });
-      }
-      
-      // Firma del cliente
-      if (updatedInstalacionData.clienteRespFirmaPath) {
-        imagesToUpload.push({
-          uri: updatedInstalacionData.clienteRespFirmaPath,
-          fieldName: 'clienteRespFirma'
-        });
-      }
+  // Log del body que se enviará
+  console.log(JSON.stringify(updatedInstalacionData, null, 2));
+      // Enviar POST al endpoint real
+      const response = await postInstalacionNevera(updatedInstalacionData);
+      // Log de la respuesta completa
+      console.log('RESPUESTA:', JSON.stringify(response, null, 2));
 
-      // Subir imágenes y obtener filenames
-      console.log(`📸 Subiendo ${imagesToUpload.length} imágenes...`);
-      
-      for (const image of imagesToUpload) {
-        try {
-          const filename = await uploadImageToServer(image.uri, updatedInstalacionData.codigo);
-          console.log(`Imagen subida: ${image.fieldName} -> ${filename}`);
-          
-          // Actualizar el filename en instalacionData
-          updatedInstalacionData[image.fieldName] = filename;
-        } catch (error) {
-          console.error(`Error subiendo ${image.fieldName}:`, error);
-          Toast.show({
-            type: 'error',
-            text1: 'Error subiendo imagen',
-            text2: `No se pudo subir ${image.fieldName}`,
-            position: 'bottom',
-          });
-        }
+      // Si viene pdfPath, mostrar el PDF en el WebView y avanzar al paso 5
+      if (response && response.pdfPath) {
+        const url = `https://phuyu-iot.com/NESTLE-API-TECNICOS/public/${response.pdfPath}`;
+        setPdfUrl(url);
+        // Actualizar instalacionData con el pdfPath recibido
+        setInstalacionData(prev => ({
+          ...prev,
+          pdfPath: response.pdfPath
+        }));
+        setCurrentStep(5);
+        Toast.show({
+          type: 'success',
+          text1: 'Vista previa generada',
+          text2: 'Revise el documento antes de finalizar',
+          position: 'bottom',
+        });
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: 'No se recibió el PDF de la instalación',
+          position: 'bottom',
+        });
       }
-      
-      // Actualizar el estado con los filenames
-      setInstalacionData(updatedInstalacionData);
-      
-      console.log('Todas las imágenes subidas');
-      console.log('Datos de instalación completos:', updatedInstalacionData);
-      
-      // TODO: Integrar con el endpoint real para generar el PDF
-      // Por ahora, simulamos la generación del PDF
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // URL de ejemplo (reemplazar con la URL real del backend)
-      setPdfUrl('https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf');
-      
-      setCurrentStep(5);
-      Toast.show({
-        type: 'success',
-        text1: 'Vista previa generada',
-        text2: 'Revise el documento antes de finalizar',
-        position: 'bottom',
-      });
     } catch (error) {
       console.error('Error generando PDF:', error);
       Toast.show({
@@ -824,33 +1010,77 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     setLoading(true);
     
     try {
-
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Obtener fecha y hora actual
+      const now = new Date();
+      const fecha = now.toISOString().split('T')[0]; // YYYY-MM-DD
+      const hora = now.toTimeString().split(' ')[0]; // HH:MM:SS
       
-      console.log('Datos completos enviados:', {
-        ...formDataStep1,
-        ...formDataStep2,
-        ...formDataStep3,
-        ...formDataStep4,
-        pdfUrl,
-      });
+      // Construir observación concatenada: "lugarInstalacion // observacion1 // observacion2"
+      let observacionConcatenada = formDataStep2.lugarInstalacion;
       
-      Toast.show({
-        type: 'success',
-        text1: 'Instalación completada',
-        text2: 'Los datos han sido enviados correctamente',
-        position: 'bottom',
-        visibilityTime: 2000,
-      });
+      if (formDataStep3.observacion1 && formDataStep3.observacion1.trim() !== '') {
+        observacionConcatenada += ' // ' + formDataStep3.observacion1.trim();
+      }
       
-      // Navegar a la pantalla de éxito
-      navigation.replace('SuccessScreen');
+      if (formDataStep3.observacion2 && formDataStep3.observacion2.trim() !== '') {
+        observacionConcatenada += ' // ' + formDataStep3.observacion2.trim();
+      }
+      
+      // Preparar datos para el endpoint de actualización
+      const updateData = {
+        cod_nevera: formDataStep1.codigoNevera,
+        tecnico: String(idUsuario),
+        fecha: fecha,
+        hora: hora,
+        status: 2,
+        imei: formDataStep1.imei,
+        informe: instalacionData.pdfPath,
+        motivos: "",
+        observacion: observacionConcatenada
+      };
+      
+      console.log('Enviando datos de actualización:', updateData);
+      
+      // Realizar la solicitud POST
+      const response = await updateGestionAndProduction(updateData);
+      
+      console.log('Respuesta de actualización:', response);
+      
+      // Verificar si la respuesta tiene status 0 (error)
+      if (response.status === 0) {
+        Toast.show({
+          type: 'error',
+          text1: 'No se puede completar',
+          text2: response.msg || 'La nevera ya fue instalada',
+          position: 'top',
+          visibilityTime: 5000,
+          autoHide: true,
+          topOffset: 30,
+        });
+        setLoading(false);
+        return; // Detener el proceso aquí
+      }
+      
+      // Mostrar mensaje de éxito
+      if (response.status === 1) {
+        Toast.show({
+          type: 'success',
+          text1: 'Éxito',
+          text2: response.msg || 'Instalación completada correctamente',
+          position: 'top',
+          visibilityTime: 3000,
+          topOffset: 30,
+        });
+        
+        // Navegar a la pantalla de éxito
+        navigation.replace('SuccessScreen');
+      }
     } catch (error) {
       console.error('Error finalizando instalación:', error);
       Toast.show({
         type: 'error',
         text1: 'Error',
-        text2: 'No se pudo completar la instalación',
+        text2: error.response?.data?.msg || 'No se pudo completar la instalación',
         position: 'bottom',
       });
     } finally {
@@ -863,9 +1093,12 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     // Solo avanzar si está sincronizado
     if (validationData?.sincronizado) {
       setShowValidationModal(false);
-      
       if (currentStep === 1) {
-        // Actualizar instalacionData con los datos del Paso 1
+        // Guardar el IMEI actual antes de actualizar
+        const currentImei = formDataStep1.imei;
+        const isManualImei = currentImei && currentImei !== 'sin imei' && currentImei.length > 0;
+        
+        // Actualizar instalacionData con los datos del Paso 1, pero NO tocar los campos de transmisión ni alerta
         setInstalacionData(prev => ({
           ...prev,
           codigo: formDataStep1.codigoNevera,
@@ -878,17 +1111,12 @@ const NuevaInstalacionScreen = ({ navigation }) => {
           distrito: formDataStep1.distrito,
           direccion: formDataStep1.direccion,
           iccidChip: formDataStep1.iccidChip,
-          imeiDispositivo: formDataStep1.imei,
+          // Usar el IMEI manual si existe
+          imeiDispositivo: isManualImei ? currentImei : formDataStep1.imei,
           otro: formDataStep1.otro,
           latitud: validationData.coordenadas?.split(',')[0]?.trim() || '',
           longitud: validationData.coordenadas?.split(',')[1]?.trim() || '',
-          transmisionRedCelular: validationData.senalCelular?.toString() || '',
-          transmisionGps: validationData.senalGPS?.toString() || '',
-          alertaDesconexion: validationData.ultimasAlertas?.desconectado || '',
-          alertaReconexion: validationData.ultimasAlertas?.conectado || '',
         }));
-
-        // Paso 1 → Paso 2: Avanzar a Funcionamiento Equipo
         Toast.show({
           type: 'success',
           text1: 'Validación exitosa',
@@ -897,7 +1125,6 @@ const NuevaInstalacionScreen = ({ navigation }) => {
         });
         setCurrentStep(2);
       } else if (currentStep === 2) {
-        // Actualizar instalacionData con los datos del Paso 2
         setInstalacionData(prev => ({
           ...prev,
           // Inspección previa
@@ -907,13 +1134,11 @@ const NuevaInstalacionScreen = ({ navigation }) => {
           iprevEstaCableElec: booleanToSiNo(formDataStep2.cableadoBuenasCondPrev),
           iprevComentario: formDataStep2.comentario,
           iprevFotoPath: formDataStep2.fotoInspeccionPrevia,
-          
           // Fotos de instalación (URIs locales)
           fotoDispInstaCajaMetalicaAbiertaPath: formDataStep2.fotoCajaMetalicaAbierta,
           fotoEmpalmeCablePath: formDataStep2.fotoEmpalmeCable,
           fotoDispInstaCajaMetalicaCerradaPath: formDataStep2.fotoCajaMetalicaCerrada,
           fotoFachadeNeveraPath: formDataStep2.fotoFachadaNevera,
-          
           // Inspección posterior
           cierreRejilla: booleanToSiNo(formDataStep2.cierreRejilla),
           ipostNeveraEnergizada: booleanToSiNo(formDataStep2.neveraEnergizadaPost),
@@ -921,8 +1146,6 @@ const NuevaInstalacionScreen = ({ navigation }) => {
           ipostTermostatoOp: booleanToSiNo(formDataStep2.termostatoPost),
           ipostEstaCableElec: booleanToSiNo(formDataStep2.cableadoElectricoPost),
         }));
-
-        // Paso 2 → Paso 3: Avanzar a Observaciones
         Toast.show({
           type: 'success',
           text1: 'Validación exitosa',
@@ -1095,6 +1318,60 @@ const NuevaInstalacionScreen = ({ navigation }) => {
         fieldLabel={currentVoiceFieldLabel}
         removeSpaces={currentVoiceField === 'codigoNevera'}
       />
+
+      {/* Modal de Selección de Fuente de Imagen */}
+      <Modal
+        visible={showImageSourceModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          setShowImageSourceModal(false);
+          setCurrentPhotoField(null);
+        }}
+      >
+        <TouchableOpacity 
+          style={styles.imageSourceOverlay}
+          activeOpacity={1}
+          onPress={() => {
+            setShowImageSourceModal(false);
+            setCurrentPhotoField(null);
+          }}
+        >
+          <View style={styles.imageSourceModal}>
+            <Text style={styles.imageSourceTitle}>Seleccionar imagen</Text>
+            
+            <TouchableOpacity 
+              style={styles.imageSourceButton}
+              onPress={handleTakeFromCamera}
+              activeOpacity={0.7}
+            >
+              <Icon name="camera-alt" size={24} color="#1a1a7e" />
+              <Text style={styles.imageSourceButtonText}>Tomar Foto</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.imageSourceButton}
+              onPress={handlePickFromGallery}
+              activeOpacity={0.7}
+            >
+              <Icon name="photo-library" size={24} color="#1a1a7e" />
+              <Text style={styles.imageSourceButtonText}>Galería</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.imageSourceButton, styles.cancelButton]}
+              onPress={() => {
+                setShowImageSourceModal(false);
+                setCurrentPhotoField(null);
+              }}
+              activeOpacity={0.7}
+            >
+              <Icon name="close" size={24} color="#666" />
+              <Text style={[styles.imageSourceButtonText, styles.cancelButtonText]}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </ScrollView>
   );
 };
@@ -1178,6 +1455,56 @@ const styles = StyleSheet.create({
   },
   btnIcon: {
     marginLeft: 4,
+  },
+  // Estilos para el modal de selección de fuente de imagen
+  imageSourceOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageSourceModal: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    width: '80%',
+    maxWidth: 320,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  imageSourceTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1a1a7e',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  imageSourceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  imageSourceButtonText: {
+    fontSize: 16,
+    color: '#1a1a7e',
+    fontWeight: '500',
+    marginLeft: 12,
+  },
+  cancelButton: {
+    backgroundColor: '#fff',
+    borderColor: '#ccc',
+    marginTop: 8,
+  },
+  cancelButtonText: {
+    color: '#666',
   },
 });
 

@@ -21,6 +21,7 @@ const FirmaCliente = ({
       <Text style={styles.label}>Firma del cliente</Text>
       <SignatureInput
         onSignatureChange={onSignatureChange}
+        existingSignatureUrl={formData.fotoFirma}
         error={null}
       />
 

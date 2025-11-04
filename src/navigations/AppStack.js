@@ -6,6 +6,7 @@ import UserScreen from '../screens/UserScreeen';
 import InstalacionScreen from '../screens/InstalacionScreen';
 import NuevaInstalacionScreen from '../screens/NuevaInstalacionScreen';
 import NuevaInstalacionFallidaScreen from '../screens/NuevaInstalacionFallidaScreen';
+import RegistroImeisScreen from '../screens/RegistroImeisScreen';
 import MapaScreen from '../screens/MapaScreen';
 import Historial from '../screens/Historial';
 import SuccessScreen from '../screens/SuccessScreen';
@@ -24,6 +25,7 @@ const AppStack = () => {
       <Stack.Screen name='Instalacion' component={InstalacionScreen} />
       <Stack.Screen name='NuevaInstalacion' component={NuevaInstalacionScreen} />
       <Stack.Screen name='NuevaInstalacionFallida' component={NuevaInstalacionFallidaScreen} />
+      <Stack.Screen name='RegistroImeis' component={RegistroImeisScreen} />
       <Stack.Screen name='Mapa' component={MapaScreen} />
       <Stack.Screen name='Historial' component={Historial} />
       <Stack.Screen 

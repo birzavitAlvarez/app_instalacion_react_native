@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,19 @@ import {
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
 const SuccessScreen = ({ navigation }) => {
+  // Navegar automáticamente después de 5 segundos
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Home' }],
+      });
+    }, 5000); // 5000 ms = 5 segundos
+
+    // Limpiar el timer si el componente se desmonta
+    return () => clearTimeout(timer);
+  }, [navigation]);
+
   const handleGoHome = () => {
     // Navegar a la pantalla principal (Home)
     navigation.reset({

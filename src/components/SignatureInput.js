@@ -154,8 +154,6 @@ const SignatureInput = forwardRef(({ error, onSignatureChange, existingSignature
               uploaded: true,
               serverResponse: uploadResult,
             });
-            
-            Alert.alert('Éxito', 'Firma guardada y subida correctamente');
           } else {
             // Si no hay callback, solo guardar localmente
             setSignature({
@@ -231,19 +229,12 @@ const SignatureInput = forwardRef(({ error, onSignatureChange, existingSignature
             {/* Imagen de la firma */}
             <View style={styles.signatureImageContainer}>
               {signature ? (
-                // Nueva firma capturada
-                signatureSource === 'draw' ? (
-                  <View style={styles.drawnPreview}>
-                    <Text style={styles.drawnIcon}>✓</Text>
-                    <Text style={styles.drawnText}>Firma actualizada</Text>
-                  </View>
-                ) : (
-                  <Image
-                    source={{ uri: signature.data }}
-                    style={styles.signatureImage}
-                    resizeMode="contain"
-                  />
-                )
+                // Nueva firma capturada - SIEMPRE mostrar la imagen
+                <Image
+                  source={{ uri: signature.uri || signature.data }}
+                  style={styles.signatureImage}
+                  resizeMode="contain"
+                />
               ) : (
                 // Firma existente de la API
                 <Image
@@ -370,8 +361,8 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
     borderRadius: 8,
     backgroundColor: '#fff',
-    height: 150,
-    maxHeight: 150,
+    width: '100%',
+    aspectRatio: 4 / 3,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -382,7 +373,6 @@ const styles = StyleSheet.create({
   placeholder: {
     flex: 1,
     width: '100%',
-    height: 150,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -408,8 +398,7 @@ const styles = StyleSheet.create({
   },
   signaturePreview: {
     width: '100%',
-    height: 150,
-    maxHeight: 150,
+    height: '100%',
     position: 'relative',
   },
   updateIconsRow: {
@@ -444,14 +433,16 @@ const styles = StyleSheet.create({
   },
   signatureImageContainer: {
     width: '100%',
-    height: 150,
+    aspectRatio: 4 / 3,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 12,
+    backgroundColor: '#fff',
   },
   signatureImage: {
     width: '100%',
     height: '100%',
+    resizeMode: 'contain',
   },
   drawnPreview: {
     flex: 1,

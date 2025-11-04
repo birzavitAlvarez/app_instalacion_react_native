@@ -37,7 +37,11 @@ export const getDataByCodNevera = async (codNevera) => {
     
     throw new Error(response.data.message || 'No se encontraron datos');
   } catch (error) {
-    console.error('Error obteniendo datos de nevera:', error);
+    // Solo mostrar el error en consola si NO es un error 400
+    // El error 400 es esperado cuando el código no existe o está incompleto
+    if (error.response?.status !== 400) {
+      console.error('Error obteniendo datos de nevera:', error);
+    }
     throw error;
   }
 };

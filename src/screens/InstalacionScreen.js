@@ -33,7 +33,21 @@ const InstalacionScreen = () => {
                             navigation.navigate("NuevaInstalacionFallida")
                         }}
                     />
+                    
                 </View>
+                
+                <View style={styles.row}>
+                    <MenuCard
+                        iconName="close"
+                        iconColor="red"
+                        title="Registro de IMEIS"
+                        description="Registro de lista de IMEIS."
+                        onPress={() => {
+                            navigation.navigate("RegistroImeis")
+                        }}
+                    />
+                </View>
+                
             </View>
         </View>
     );

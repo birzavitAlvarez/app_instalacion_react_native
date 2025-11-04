@@ -63,49 +63,64 @@ const Observaciones = ({
         </TouchableOpacity>
       )}
 
-      {/* Observación 2 */}
-      <Text style={[styles.label, styles.labelMarginTop]}>Observación 2</Text>
-      <View style={styles.textAreaContainer}>
-        <TextInput
-          style={styles.textArea}
-          placeholder="Escriba su observación aquí"
-          value={formData.observacion2}
-          onChangeText={(value) => onChangeField('observacion2', value)}
-          multiline
-          numberOfLines={7}
-          maxLength={250}
-          textAlignVertical="top"
-        />
+      {/* Botón para mostrar Observación 2 */}
+      {!formData.showObservacion2 && (
         <TouchableOpacity
-          style={styles.micButton}
-          onPress={() => onVoiceInput('observacion2')}
+          style={styles.addObservationButton}
+          onPress={() => onChangeField('showObservacion2', true)}
         >
-          <Icon name="mic" size={24} color="#666" />
+          <Icon name="add-circle-outline" size={24} color="#2b4a8b" />
+          <Text style={styles.addObservationText}>Agregar otra observación</Text>
         </TouchableOpacity>
-      </View>
+      )}
 
-      {/* Foto Observación 2 */}
-      <TouchableOpacity
-        style={styles.photoContainer}
-        onPress={() => onTakePhoto('fotoObservacion2')}
-      >
-        {formData.fotoObservacion2 ? (
-          <Image source={{ uri: formData.fotoObservacion2 }} style={styles.photo} />
-        ) : (
-          <View style={styles.photoPlaceholder}>
-            <Icon name="camera-alt" size={40} color="#999" />
+      {/* Observación 2 - Solo visible si showObservacion2 es true */}
+      {formData.showObservacion2 && (
+        <>
+          <Text style={[styles.label, styles.labelMarginTop]}>Observación 2</Text>
+          <View style={styles.textAreaContainer}>
+            <TextInput
+              style={styles.textArea}
+              placeholder="Escriba su observación aquí"
+              value={formData.observacion2}
+              onChangeText={(value) => onChangeField('observacion2', value)}
+              multiline
+              numberOfLines={7}
+              maxLength={250}
+              textAlignVertical="top"
+            />
+            <TouchableOpacity
+              style={styles.micButton}
+              onPress={() => onVoiceInput('observacion2')}
+            >
+              <Icon name="mic" size={24} color="#666" />
+            </TouchableOpacity>
           </View>
-        )}
-      </TouchableOpacity>
 
-      {formData.fotoObservacion2 && (
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => onDeletePhoto('fotoObservacion2')}
-        >
-          <Icon name="delete" size={20} color="#e74c3c" />
-          <Text style={styles.deleteText}>Eliminar foto Observación 2</Text>
-        </TouchableOpacity>
+          {/* Foto Observación 2 */}
+          <TouchableOpacity
+            style={styles.photoContainer}
+            onPress={() => onTakePhoto('fotoObservacion2')}
+          >
+            {formData.fotoObservacion2 ? (
+              <Image source={{ uri: formData.fotoObservacion2 }} style={styles.photo} />
+            ) : (
+              <View style={styles.photoPlaceholder}>
+                <Icon name="camera-alt" size={40} color="#999" />
+              </View>
+            )}
+          </TouchableOpacity>
+
+          {formData.fotoObservacion2 && (
+            <TouchableOpacity
+              style={styles.deleteButton}
+              onPress={() => onDeletePhoto('fotoObservacion2')}
+            >
+              <Icon name="delete" size={20} color="#e74c3c" />
+              <Text style={styles.deleteText}>Eliminar foto Observación 2</Text>
+            </TouchableOpacity>
+          )}
+        </>
       )}
     </View>
   );
@@ -147,7 +162,6 @@ const styles = StyleSheet.create({
   },
   photoContainer: {
     marginTop: 10,
-    height: 150,
     borderWidth: 2,
     borderColor: '#00BCD4',
     borderStyle: 'dashed',
@@ -156,15 +170,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
+    width: '100%',
+    aspectRatio: 4 / 3,
   },
   photoPlaceholder: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   photo: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
+    resizeMode: 'contain',
+    backgroundColor: '#fff',
   },
   deleteButton: {
     flexDirection: 'row',
@@ -175,6 +193,24 @@ const styles = StyleSheet.create({
   deleteText: {
     fontSize: 11,
     color: '#e74c3c',
+    marginLeft: 8,
+  },
+  addObservationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    marginTop: 20,
+    marginBottom: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2b4a8b',
+    backgroundColor: '#f0f4ff',
+  },
+  addObservationText: {
+    fontSize: 16,
+    color: '#2b4a8b',
+    fontWeight: '500',
     marginLeft: 8,
   },
 });

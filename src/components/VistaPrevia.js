@@ -5,8 +5,12 @@ import {
   StyleSheet,
   ActivityIndicator,
   Platform,
+  Dimensions, // Importamos Dimensions
 } from 'react-native';
 import { WebView } from 'react-native-webview';
+
+// Obtenemos la altura de la pantalla
+const windowHeight = Dimensions.get('window').height;
 
 const VistaPrevia = ({ pdfUrl, loading }) => {
   const [webViewLoading, setWebViewLoading] = useState(true);
@@ -25,6 +29,7 @@ const VistaPrevia = ({ pdfUrl, loading }) => {
         </View>
       ) : pdfUrl ? (
         <>
+          {/* Muestra un 'Cargando...' superpuesto mientras el WebView carga */}
           {webViewLoading && (
             <View style={styles.webViewLoadingContainer}>
               <ActivityIndicator size="large" color="#2b4a8b" />
@@ -39,10 +44,11 @@ const VistaPrevia = ({ pdfUrl, loading }) => {
             onError={(syntheticEvent) => {
               const { nativeEvent } = syntheticEvent;
               console.error('WebView error: ', nativeEvent);
+              setWebViewLoading(false); // Asegúrate de ocultar el loading si hay error
             }}
             javaScriptEnabled={true}
             domStorageEnabled={true}
-            startInLoadingState={true}
+            startInLoadingState={true} // Muestra el indicador de carga nativo
           />
         </>
       ) : (
@@ -57,16 +63,19 @@ const VistaPrevia = ({ pdfUrl, loading }) => {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    // La altura fija para que funcione dentro de ScrollView
+    height: windowHeight * 0.75, 
     backgroundColor: '#fff',
   },
   loadingContainer: {
-    flex: 1,
+    // Contenedor para el estado de 'generando...'
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   webViewLoadingContainer: {
+    // Contenedor para el estado de 'cargando...' del WebView
     position: 'absolute',
     top: 0,
     left: 0,
@@ -75,7 +84,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#fff',
-    zIndex: 1000,
+    zIndex: 1000, // Se superpone por encima del WebView
   },
   loadingText: {
     marginTop: 16,
@@ -84,10 +93,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   webview: {
-    flex: 1,
+    flex: 1, // El WebView llena el 'container'
   },
   errorContainer: {
-    flex: 1,
+    // Contenedor para el estado de error
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
