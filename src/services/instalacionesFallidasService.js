@@ -52,3 +52,21 @@ export async function registrarGestionFallida(data) {
   if (!res.ok) throw new Error("Error al registrar gestión logística");
   return await res.json();
 }
+
+export const validarActaFallidaPorDia = async (codigoNevera, fecha) => {
+  try {
+    const url = `https://phuyu-iot.com/NESTLE-API-TECNICOS/api/v1/logistica/validarActasFallidasPorDia?nevera=${codigoNevera}&fecha=${fecha}`;
+    const res = await fetch(url);
+
+    if (res.status === 200) {
+      const data = await res.json();
+      return { status: 1, msg: data.msg };
+    } else {
+      const data = await res.json();
+      return { status: 0, msg: data.msg };
+    }
+  } catch (error) {
+    console.error("Error validando acta fallida:", error);
+    return { status: 0, msg: "Error al validar la nevera" };
+  }
+};

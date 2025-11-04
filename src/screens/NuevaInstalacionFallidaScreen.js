@@ -22,7 +22,7 @@ import { takePhotoCompressed, pickFromGalleryCompressed, convertImageToBase64 } 
 import { requestCameraPermission, requestGalleryPermission } from '../utils/permissions';
 import AutocompleteNeveraInput from '../components/AutocompleteNeveraInput';
 import AutocompleteNevera from '../components/AutocompleteNevera';
-import { uploadImageBase64, crearInstalacionFallida, registrarGestionFallida } from '../services/instalacionesFallidasService';
+import { uploadImageBase64, crearInstalacionFallida, registrarGestionFallida, validarActaFallidaPorDia } from '../services/instalacionesFallidasService';
 import { AuthContext } from '../context/AuthContext';
 const NuevaInstalacionFallidaScreen = () => {
   // Estados
@@ -345,6 +345,24 @@ const NuevaInstalacionFallidaScreen = () => {
 
     try {
       setLoading(true);
+
+
+      const fechaHoy = new Date().toISOString().slice(0, 10);
+
+      const validacion = await validarActaFallidaPorDia(codigoNevera, fechaHoy);
+      console.log("Validación de nevera:", validacion);
+
+      if (validacion.status === 0) {
+        Toast.show({
+          type: "error",
+          text1: "Aviso",
+          text2: validacion.msg || "Ya tiene registrada una instalación fallida hoy.",
+          position: "bottom",
+          visibilityTime: 4000,
+        });
+        setLoading(false);
+        return; 
+      }
 
       let fotoPath = "";
       if (fotoBase64) {
