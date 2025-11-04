@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import {
   View,
   Text,
@@ -21,9 +21,12 @@ import VoiceInput from '../components/VoiceInput';
 import { takePhotoCompressed, pickFromGalleryCompressed, convertImageToBase64 } from '../utils/imageUtil';
 import { requestCameraPermission, requestGalleryPermission } from '../utils/permissions';
 import AutocompleteNeveraInput from '../components/AutocompleteNeveraInput';
-
+import AutocompleteNevera from '../components/AutocompleteNevera';
+import { uploadImageBase64, crearInstalacionFallida, registrarGestionFallida } from '../services/instalacionesFallidasService';
+import { AuthContext } from '../context/AuthContext';
 const NuevaInstalacionFallidaScreen = () => {
   // Estados
+  const { signOut, userInfo } = useContext(AuthContext)
   const [codigoNevera, setCodigoNevera] = useState('');
   const [ubicacionConfirmada, setUbicacionConfirmada] = useState(false);
   const [causasFallo, setCausasFallo] = useState({
@@ -41,6 +44,12 @@ const NuevaInstalacionFallidaScreen = () => {
     excedioTiempoEspera: false,
     neveraPropiaCliente: false,
   });
+  const [lugarInstalacion, setLugarInstalacion] = useState({
+    pdvNeveraOperativa: false,
+    pdvNeveraSinUso: false,
+    patioDistribuidor: false,
+    patioFrioHielos: false,
+  });
   const [observacion, setObservacion] = useState('');
   const [foto, setFoto] = useState(null);
   const [fotoBase64, setFotoBase64] = useState(null);
@@ -49,6 +58,7 @@ const NuevaInstalacionFallidaScreen = () => {
   const [dni, setDni] = useState('');
   const [loading, setLoading] = useState(false);
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
+  const signatureRef = useRef(null);
 
   // Estados para entrada por voz
   const [showVoiceInput, setShowVoiceInput] = useState(false);
@@ -75,6 +85,15 @@ const NuevaInstalacionFallidaScreen = () => {
   const toggleCausa = (causa) => {
     setCausasFallo({ ...causasFallo, [causa]: !causasFallo[causa] });
   };
+
+  const toggleLugarInstalacion = (lugar) => {
+    const nuevosValores = Object.keys(lugarInstalacion).reduce((acc, key) => {
+      acc[key] = key === lugar ? !lugarInstalacion[lugar] : false;
+      return acc;
+    }, {});
+    setLugarInstalacion(nuevosValores);
+  };
+
 
   // Manejar escaneo de código de barras
   const handleBarcodeScan = () => {
@@ -324,33 +343,176 @@ const NuevaInstalacionFallidaScreen = () => {
       return;
     }
 
-    // Crear objeto de instalación fallida
-    const instalacionFallida = {
-      codigoNevera,
-      ubicacion: {
-        latitude,
-        longitude,
-      },
-      causasFallo,
-      observacion,
-      foto: fotoBase64,
-      firma: signature,
-      nombreApellidos,
-      dni,
-      fechaHora: new Date().toISOString(),
-    };
+    try {
+      setLoading(true);
 
-    console.log('Instalación Fallida:', instalacionFallida);
-    Toast.show({
-      type: 'success',
-      text1: '✓ Éxito',
-      text2: 'Instalación fallida registrada correctamente',
-      position: 'bottom',
-      visibilityTime: 3000,
-    });
+      let fotoPath = "";
+      if (fotoBase64) {
+        console.log("Subiendo foto...");
+        const resFoto = await uploadImageBase64(fotoBase64, codigoNevera);
+        if (resFoto?.fileName) fotoPath = resFoto.fileName;
+        console.log("Foto subida:", fotoPath);
+      }
 
-    // TODO: Enviar al backend
-    // await API.crearInstalacionFallida(instalacionFallida);
+      let firmaPath = "";
+      if (signature) {
+        let firmaBase64 = "";
+
+        if (signature.data?.startsWith("data:image")) {
+          firmaBase64 = signature.data;
+        } else if (signature.uri) {
+          console.log("Convirtiendo firma desde URI a base64...");
+          firmaBase64 = await convertImageToBase64(signature.uri);
+        }
+
+        if (firmaBase64) {
+          console.log("Subiendo firma...");
+          const resFirma = await uploadImageBase64(firmaBase64, codigoNevera);
+          if (resFirma?.fileName) firmaPath = resFirma.fileName;
+          console.log("Firma subida:", firmaPath);
+        } else {
+          console.warn("No se encontró base64 de la firma.");
+        }
+      }
+
+      const {
+        direccionNoExiste,
+        establecimientoCerrado,
+        noSePermitioIngreso,
+        puntoYaInstalado,
+        congeladoraAveriada,
+        noCorrespondeModelo,
+        imposibilidadAccesoElectrico,
+        congeladoraNoDisponible,
+        sinCoberturaCelular,
+        sinCoberturaGPS,
+        faltaEspacioInstalacion,
+        excedioTiempoMaxEspera,
+      } = causasFallo;
+
+      const payload = {
+        codigo: codigoNevera,
+        latitud: String(latitude),
+        longitud: String(longitude),
+        direccionNoExiste: direccionNoExiste ? "SI" : "NO",
+        establecimientoCerrado: establecimientoCerrado ? "SI" : "NO",
+        noPermitioIngreso: noSePermitioIngreso ? "SI" : "NO",
+        puntoYaInstalado: puntoYaInstalado ? "SI" : "NO",
+        congeladoraReportadaAveriada: congeladoraAveriada ? "SI" : "NO",
+        noCorrespAlModelo: noCorrespondeModelo ? "SI" : "NO",
+        imposibilidadAcceso: imposibilidadAccesoElectrico ? "SI" : "NO",
+        congeladoraNoDisp: congeladoraNoDisponible ? "SI" : "NO",
+        sinCoberturaCelular: sinCoberturaCelular ? "SI" : "NO",
+        sinCoberturaGps: sinCoberturaGPS ? "SI" : "NO",
+        faltaEspacioInstalacion: faltaEspacioInstalacion ? "SI" : "NO",
+        excedioTiempoMaxEspera: excedioTiempoMaxEspera ? "SI" : "NO",
+        observacion1: observacion,
+        fotoObservacion1: "foto.jpg",
+        fotoObservacion1Path: fotoPath,
+        idNevera: 0,
+        idUsuario: userInfo?.idUsuario,
+        clienteRespFirmaPath: firmaPath,
+        clienteRespNombreApellido: nombreApellidos,
+        clienteRespDni: dni,
+        pdfPath: "",
+      };
+
+
+      console.log("Payload listo para enviar:", JSON.stringify(payload, null, 2));
+
+      const res = await crearInstalacionFallida(payload);
+      console.log("Instalación fallida creada:", res);
+
+      const causasSeleccionadas = Object.entries(causasFallo)
+        .filter(([_, valor]) => valor === true)
+        .map(([clave]) => clave)
+        .join(",");
+
+      const lugarSeleccionado = Object.entries(lugarInstalacion)
+        .filter(([_, valor]) => valor === true)
+        .map(([clave]) => clave)
+        .join(",");
+
+      const observacionFinal = [
+        causasSeleccionadas || "",
+        lugarSeleccionado || ""
+      ].filter(Boolean).join(" // ");
+
+      const payloadGestion = {
+        cod_nevera: codigoNevera,
+        tecnico: userInfo?.idUsuario,
+        fecha: new Date().toISOString().slice(0, 10),
+        hora: new Date().toLocaleTimeString("es-PE", { hour12: false }),
+        status: 3,
+        imei: "",
+        informe: res?.pdfPath || "",
+        motivos: causasSeleccionadas,
+        observacion: observacionFinal || "",
+      };
+
+      console.log("Payload gestión listo:", payloadGestion);
+
+      const resGestion = await registrarGestionFallida(payloadGestion);
+      console.log("Gestión fallida registrada:", resGestion);
+
+      if (resGestion?.status === 0) {
+        Toast.show({
+          type: "error",
+          text1: "Aviso",
+          text2: resGestion?.msg || "Esta nevera ya está instalada",
+          position: "bottom",
+          visibilityTime: 4000,
+        });
+        setLoading(false);
+        return;
+      }
+
+      Toast.show({
+        type: "success",
+        text1: "✓ Éxito",
+        text2: "Instalación fallida registradas correctamente",
+        position: "bottom",
+        visibilityTime: 3000,
+      });
+      setCodigoNevera('');
+      setFotoBase64(null);
+      setSignature(null);
+      setObservacion("");
+      setNombreApellidos("");
+      setDni("");
+      setFoto(null);
+
+      const causasVacias = Object.keys(causasFallo).reduce((acc, key) => {
+        acc[key] = false;
+        return acc;
+      }, {});
+      setCausasFallo(causasVacias);
+
+      const lugaresVacios = Object.keys(lugarInstalacion).reduce((acc, key) => {
+        acc[key] = false;
+        return acc;
+      }, {});
+      setLugarInstalacion(lugaresVacios);
+
+      if (signatureRef.current) {
+        signatureRef.current.clearSignature();
+      }
+
+    } catch (error) {
+      console.error("Error en instalación o gestión fallida:", error);
+
+      const backendMsg = error?.message || error?.response?.msg || "Error desconocido";
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: backendMsg,
+        position: "bottom",
+        visibilityTime: 3000,
+      });
+
+    } finally {
+      setLoading(false);
+    }
   };
 
   const causasLabels = {
@@ -368,7 +530,12 @@ const NuevaInstalacionFallidaScreen = () => {
     excedioTiempoEspera: 'Excedió tiempo máximo de espera 10 minutos',
     neveraPropiaCliente: 'Nevera propia del cliente',
   };
-
+  const lugarInstalacionLabels = {
+    pdvNeveraOperativa: 'PDV con nevera operativa',
+    pdvNeveraSinUso: 'PDV con nevera sin uso',
+    patioDistribuidor: 'Patio distribuidor',
+    patioFrioHielos: 'Patio frío de hielos',
+  };
   const handleGoogleMaps = async () => {
     const url = `https://maps.google.com/?q=${latitude},${longitude}`;
     const supported = await Linking.canOpenURL(url);
@@ -383,7 +550,7 @@ const NuevaInstalacionFallidaScreen = () => {
       {/* Código de Nevera */}
       <View style={styles.section}>
         <Text style={styles.label}>Código de Nevera</Text>
-        <AutocompleteNeveraInput
+        <AutocompleteNevera
           value={codigoNevera}
           onChangeText={setCodigoNevera}
           onBarcodePress={handleBarcodeScan}
@@ -410,16 +577,16 @@ const NuevaInstalacionFallidaScreen = () => {
           <TextInput
             style={[ubicacionConfirmada ? styles.inputUbicacionConfirmed : styles.inputUbicacion]}
             placeholder="Ubicación"
-            value={latitude && longitude ? `${latitude.toFixed(5)}, ${longitude.toFixed(5)}` : ''}
+            value={latitude && longitude ? `${latitude}, ${longitude}` : ''}
             editable={false}
           />
         </View>
-        <TouchableOpacity onPress={handleGoogleMaps}>
-          <Text style={{ color: '#007AFF', marginTop: 8, fontSize: 12 }}>https://maps.google.com/?q={latitude.toFixed(5)},{longitude.toFixed(5)}</Text>
+        <TouchableOpacity onPress={handleGoogleMaps} disabled={!latitude || !longitude}>
+          <Text style={{ color: '#007AFF', marginTop: 8, fontSize: 12 }}>https://maps.google.com/?q={latitude},{longitude}</Text>
         </TouchableOpacity>
         {locationError && !latitude && (
           <Text style={styles.errorText}>⚠️ {locationError}</Text>
-        )}        
+        )}
       </View>
 
       {/* Causas de Fallo */}
@@ -438,6 +605,23 @@ const NuevaInstalacionFallidaScreen = () => {
           </TouchableOpacity>
         ))}
       </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Lugar de Instalación</Text>
+        {Object.keys(lugarInstalacion).map((lugar) => (
+          <TouchableOpacity
+            key={lugar}
+            style={styles.checkboxContainer}
+            onPress={() => toggleLugarInstalacion(lugar)}
+          >
+            <View style={[styles.checkbox, lugarInstalacion[lugar] && styles.checkboxChecked]}>
+              {lugarInstalacion[lugar] && <Text style={styles.checkmark}>✓</Text>}
+            </View>
+            <Text style={styles.checkboxLabel}>{lugarInstalacionLabels[lugar]}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
 
       {/* Observación */}
       <View style={styles.section}>
@@ -483,6 +667,7 @@ const NuevaInstalacionFallidaScreen = () => {
       <View style={styles.section}>
         <Text style={styles.label}>Firma del cliente</Text>
         <SignatureInput
+          ref={signatureRef}
           onSignatureChange={handleSignatureChange}
           error={null}
         />

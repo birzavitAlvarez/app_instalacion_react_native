@@ -16,7 +16,7 @@ import { fetchHistorialInstalaciones } from "../services/historialService";
 const Historial = () => {
   const auth = useContext(AuthContext);
   const userInfo = auth?.userInfo || {};
-  const idUsuario = 114; 
+  const idUsuario = userInfo.idUsuario; 
 
   const [efectivas, setEfectivas] = useState([]);
   const [fallidas, setFallidas] = useState([]);

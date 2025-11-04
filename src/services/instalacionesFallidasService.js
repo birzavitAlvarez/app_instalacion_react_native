@@ -7,14 +7,30 @@ export async function buscarNeveraPorCodigo(code) {
   return await res.json();
 }
 
-export async function uploadImageBase64(base64Data) {
+export async function uploadImageBase64(base64Data, codNevera) {
+  const cleanBase64 = base64Data.replace(/^data:image\/[a-zA-Z]+;base64,/, "");
+
+  const body = {
+    file: cleanBase64,
+    cod_nevera: codNevera,
+  };
+  console.log("📤 Subiendo imagen con body:", body);
+
   const res = await fetch(INSTALACIONES_FALLIDAS_ENDPOINTS.UPLOAD_IMAGE, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ base64: base64Data }),
+    body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error("Error al subir imagen");
-  return await res.json();
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Error al subir imagen:", errorText);
+    throw new Error("Error al subir imagen");
+  }
+
+  const data = await res.json();
+  console.log("✅ Imagen subida con éxito:", data);
+  return data;
 }
 
 export async function crearInstalacionFallida(data) {

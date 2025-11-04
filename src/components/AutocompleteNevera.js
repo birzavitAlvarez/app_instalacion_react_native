@@ -161,7 +161,6 @@ const AutocompleteNevera = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
     zIndex: 1000,
   },
   inputContainer: {
