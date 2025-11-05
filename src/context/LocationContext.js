@@ -20,7 +20,6 @@ export const LocationProvider = ({ children }) => {
     
     if (Platform.OS === 'android') {
       try {
-        // Verificar que el contexto de Android esté disponible
         if (!PermissionsAndroid) {
           console.warn('PermissionsAndroid no disponible');
           setPermissionChecked(true);
@@ -28,17 +27,15 @@ export const LocationProvider = ({ children }) => {
           return false;
         }
         
-        const granted = await PermissionsAndroid.request(
+        // Solicitar ambos permisos (FINE y COARSE)
+        const granted = await PermissionsAndroid.requestMultiple([
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          {
-            title: 'Permiso de Ubicación',
-            message: 'La aplicación necesita acceso a tu ubicación GPS',
-            buttonPositive: 'Aceptar',
-            buttonNegative: 'Cancelar',
-          }
-        );
+          PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+        ]);
         
-        const hasPermission = granted === PermissionsAndroid.RESULTS.GRANTED;
+        const hasPermission = 
+          granted['android.permission.ACCESS_FINE_LOCATION'] === PermissionsAndroid.RESULTS.GRANTED ||
+          granted['android.permission.ACCESS_COARSE_LOCATION'] === PermissionsAndroid.RESULTS.GRANTED;
         
         if (hasPermission) {
           console.log('Permiso de ubicación concedido');
@@ -61,15 +58,13 @@ export const LocationProvider = ({ children }) => {
       }
     }
     
-    // iOS maneja permisos automáticamente
     setPermissionChecked(true);
     setPermissionGranted(true);
     return true;
   }, [permissionChecked, permissionGranted]);
 
-  // Obtener ubicación actual de forma inmediata
+  // Obtener ubicación actual con reintentos
   const getCurrentLocation = useCallback(async () => {
-    // Solicitar permisos si aún no se han verificado
     if (!permissionChecked) {
       const hasPermission = await requestPermission();
       if (!hasPermission) {
@@ -80,29 +75,69 @@ export const LocationProvider = ({ children }) => {
     }
     
     setIsLoading(true);
+    
+    // Primero intentar con baja precisión (más rápido)
     return new Promise((resolve, reject) => {
+      let resolved = false;
+      
+      // Intento 1: Baja precisión, timeout corto
       Geolocation.getCurrentPosition(
         (position) => {
-          const loc = {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            accuracy: position.coords.accuracy,
-          };
-          setLocation(loc);
-          setError(null);
-          setIsLoading(false);
-          resolve(loc);
+          if (!resolved) {
+            resolved = true;
+            const loc = {
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              accuracy: position.coords.accuracy,
+            };
+            setLocation(loc);
+            setError(null);
+            setIsLoading(false);
+            resolve(loc);
+          }
         },
         (err) => {
-          console.error('Error obteniendo ubicación:', err);
-          setError(err.message);
-          setIsLoading(false);
-          reject(err);
+          console.log('Intento con baja precisión falló, intentando alta precisión...');
+          
+          // Intento 2: Alta precisión, timeout más largo
+          Geolocation.getCurrentPosition(
+            (position) => {
+              if (!resolved) {
+                resolved = true;
+                const loc = {
+                  latitude: position.coords.latitude,
+                  longitude: position.coords.longitude,
+                  accuracy: position.coords.accuracy,
+                };
+                setLocation(loc);
+                setError(null);
+                setIsLoading(false);
+                resolve(loc);
+              }
+            },
+            (err2) => {
+              if (!resolved) {
+                resolved = true;
+                console.error('Error obteniendo ubicación:', err2);
+                setError(err2.message);
+                setIsLoading(false);
+                reject(err2);
+              }
+            },
+            { 
+              enableHighAccuracy: true, 
+              timeout: 30000,
+              maximumAge: 10000,
+              distanceFilter: 0,
+              forceRequestLocation: true,
+              showLocationDialog: true,
+            }
+          );
         },
         { 
-          enableHighAccuracy: true, 
-          timeout: 60000,
-          maximumAge: 1000
+          enableHighAccuracy: false, 
+          timeout: 10000,
+          maximumAge: 60000,
         }
       );
     });
@@ -129,8 +164,9 @@ export const LocationProvider = ({ children }) => {
         enableHighAccuracy: true,
         distanceFilter: 10,
         interval: 10000,
-        timeout: 60000,
-        maximumAge: 1000,
+        timeout: 30000,
+        maximumAge: 10000,
+        forceRequestLocation: true,
       }
     );
     setWatchId(id);
@@ -144,14 +180,12 @@ export const LocationProvider = ({ children }) => {
     }
   }, [watchId]);
 
-  // Limpiar tracking al desmontar
   useEffect(() => {
     return () => {
       stopTracking();
     };
   }, [stopTracking]);
 
-  // Manejar cambios de estado de la app
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active' && watchId === null) {
