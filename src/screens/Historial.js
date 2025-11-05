@@ -8,21 +8,27 @@ import {
   StyleSheet,
   Alert,
   Linking,
+  Share
 } from "react-native";
 import Clipboard from "@react-native-clipboard/clipboard";
 import { AuthContext } from "../context/AuthContext";
 import { fetchHistorialInstalaciones } from "../services/historialService";
-
+import Toast from "react-native-toast-message";
+import FontAwesome from 'react-native-vector-icons/FontAwesome';
+import AntDesign from 'react-native-vector-icons/AntDesign';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 const Historial = () => {
   const auth = useContext(AuthContext);
   const userInfo = auth?.userInfo || {};
-  const idUsuario = userInfo.idUsuario; 
+  const idUsuario = userInfo.idUsuario;
 
   const [efectivas, setEfectivas] = useState([]);
   const [fallidas, setFallidas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState("efectivas");
 
+  const PdfIcon = { component: MaterialIcons, name: 'picture-as-pdf', color: '#fff', size: 20 };
+  const ShareIcon = { component: MaterialIcons, name: 'share', color: '#fff', size: 20 };
   useEffect(() => {
     if (!idUsuario) return;
 
@@ -46,7 +52,7 @@ const Historial = () => {
   if (loading)
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color="#2b4a8b" />
         <Text style={styles.loadingText}>Cargando historial...</Text>
       </View>
     );
@@ -58,10 +64,20 @@ const Historial = () => {
     else Alert.alert("Error", "No se puede abrir el enlace.");
   };
 
-  const handleCompartir = (path) => {
-    const url = `https://phuyu-iot.com/NESTLE-API-TECNICOS/public/${path}`;
-    Clipboard.setString(url);
-    Alert.alert("Copiado ✅", "Enlace copiado al portapapeles.");
+  const handleCompartir = async (path) => {
+    try {
+      const url = `https://phuyu-iot.com/NESTLE-API-TECNICOS/public/${path}`;
+      const message = `Aquí tienes el enlace del acta de instalación:\n${url}`;
+
+      await Share.share({
+        message,
+        url,
+        title: "Compartir acta de instalación",
+      });
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Error", "No se pudo compartir el enlace.");
+    }
   };
 
   const renderItem = (item, color) => (
@@ -76,16 +92,16 @@ const Historial = () => {
       </View>
       <View style={styles.buttons}>
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: "#007AFF" }]}
+          style={[styles.button, { backgroundColor: "#8F9392" }]}
           onPress={() => handleVerPDF(item.pdfPath)}
         >
-          <Text style={styles.buttonText}>Ver PDF</Text>
+          <PdfIcon.component name={PdfIcon.name} size={PdfIcon.size} color={PdfIcon.color} />
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: "#6B7280" }]}
+          style={[styles.button, { backgroundColor: "#53617cff" }]}
           onPress={() => handleCompartir(item.pdfPath)}
         >
-          <Text style={styles.buttonText}>Compartir</Text>
+          <ShareIcon.component name={ShareIcon.name} size={ShareIcon.size} color={ShareIcon.color} />
         </TouchableOpacity>
       </View>
     </View>
@@ -150,7 +166,6 @@ const Historial = () => {
         </TouchableOpacity>
       </View>
 
-      {/* 🔹 Contenido */}
       {renderLista()}
     </View>
   );
@@ -177,7 +192,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   activeTab: {
-    backgroundColor: "#007AFF",
+    backgroundColor: "#2b4a8b",
   },
   tabText: {
     fontSize: 16,
@@ -209,13 +224,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   buttons: {
-    flexDirection: "column",
+    flexDirection: "row",
     gap: 6,
     marginLeft: 10,
   },
   button: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    padding: 8,
     borderRadius: 8,
   },
   buttonText: {

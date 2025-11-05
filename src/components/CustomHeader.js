@@ -20,14 +20,14 @@ const CustomHeader = () => {
                             style={styles.logo}
                             onError={(e) => console.log('Error al cargar imagen', e.nativeEvent)}
                         />
-                        {/* 
+                        {/*
                         <View style={[styles.roleContainer, { maxWidth: 100, backgroundColor: roleStyles.backgroundColor }]}>
                             <Text numberOfLines={1} ellipsizeMode='tail' style={[styles.role, { color: roleStyles.color }]}>{roleText}</Text>
                         </View> */}
                     </View>
                     <View style={{ alignItems: 'center', flexDirection: 'row', gap: 10 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                            <View style={{ maxWidth: 70 }}>
+                            {/* <View style={{ maxWidth: 70 }}>
                                 <Text
                                     style={{ color: 'white', fontWeight: '600', fontSize: 13 }}
                                     numberOfLines={1}
@@ -35,8 +35,8 @@ const CustomHeader = () => {
                                 >
                                     {`Hola ${userInfo?.idUsuario}`}
                                 </Text>
-                            </View>
-                            {/* 
+                            </View> */}
+                            {/*
                             {fotoToShow ? (
                                 <Image
                                     source={{ uri: fotoToShow }}

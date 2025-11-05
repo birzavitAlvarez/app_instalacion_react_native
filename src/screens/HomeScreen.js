@@ -10,13 +10,25 @@ import { AuthContext } from "../context/AuthContext"
 import { useNavigation } from "@react-navigation/native";
 import { getAppVersion } from "../services/historialService";
 import MenuCard from "../components/MenuCard";
+import FontAwesome from 'react-native-vector-icons/FontAwesome';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import AntDesign from 'react-native-vector-icons/AntDesign';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
-const CURRENT_BUILD_CODE = 1; 
+const CURRENT_BUILD_CODE = 1;
 const HomeScreen = () => {
 
 
   const navigation = useNavigation();
   const { signOut, userInfo } = useContext(AuthContext)
+
+  const InstaIcon = { component: FontAwesome, name: 'th-list', color: '#8F9392', size: 24 };
+  const HistoryIcon = { component: FontAwesome, name: 'history', color: '#8F9392', size: 24 };
+  const UserIcon = { component: FontAwesome, name: 'user', color: '#8F9392', size: 24 };
+  const HelpIcon = { component: MaterialIcons, name: 'live-help', color: '#8F9392', size: 24 };
+  const MapIcon = { component: Ionicons, name: 'map', color: '#8F9392', size: 24 };
+  const LogoutIcon = { component: MaterialIcons, name: 'logout', color: 'red', size: 24 };
+  const AddIcon = { component: Ionicons, name: 'add', color: '#fff', size: 30 };
 
   useEffect(() => {
     checkForUpdates();
@@ -68,21 +80,21 @@ const HomeScreen = () => {
   };
   return (
     <View style={{ flex: 1, backgroundColor: "#F1F3F2", paddingHorizontal: 20, }}>
-      <View style={{ paddingVertical: 40 }}>
+      {/* <View style={{ paddingVertical: 40 }}>
         <Text style={{ fontSize: 35, fontWeight: 600, color: "#8F9392", }} >Hola {userInfo?.idUsuario},</Text>
         <Text style={{ fontSize: 35, fontWeight: 600, color: "#060807", }} >Cómo puedo ayudarte hoy?</Text>
-      </View>
-      <View style={{ flex: 1, flexDirection: "column", gap: 6, }}>
-        <View style={{ flexDirection: "row", gap: 6 }}>
+      </View> */}
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 10, }}>
+        <View style={{ flexDirection: "row", gap: 10 }}>
           <MenuCard
-            // Icon={Entypo}
+            Icon={InstaIcon}
             iconName="install"
             title="Instalación"
             description="Instala nuevo equipo."
             onPress={() => navigation.navigate("Instalacion")}
           />
           <MenuCard
-            // Icon={AntDesign}
+            Icon={HistoryIcon}
             iconName="history"
             title="Historial"
             description="Ver historial."
@@ -92,14 +104,14 @@ const HomeScreen = () => {
 
         <View style={{ flexDirection: "row", gap: 6 }}>
           <MenuCard
-            // Icon={FontAwesome}
+            Icon={UserIcon}
             iconName="user"
             title="Perfil"
             description="Gestione su perfil."
             onPress={() => navigation.navigate("User")}
           />
           <MenuCard
-            // Icon={Feather}
+            Icon={HelpIcon}
             iconName="help-circle"
             title="Soporte"
             description="¿Necesita ayuda?"
@@ -108,14 +120,14 @@ const HomeScreen = () => {
 
         <View style={{ flexDirection: "row", gap: 6 }}>
           <MenuCard
-            // Icon={Entypo}
+            Icon={MapIcon}
             iconName="map"
             title="Mapa"
             description="Ver en mapa."
             onPress={() => navigation.navigate("Mapa")}
           />
           <MenuCard
-            // Icon={MaterialIcons}
+            Icon={LogoutIcon}
             iconName="logout"
             iconColor="red"
             title="Salir"
@@ -125,23 +137,23 @@ const HomeScreen = () => {
           />
         </View>
       </View>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginVertical: 20, }}>
+      {/* <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginVertical: 20, }}>
         <View style={{ flexDirection: "row", gap: 5, backgroundColor: "#1E187B", padding: 10, borderRadius: 50 }}>
           <TouchableOpacity style={{ width: 50, height: 50, justifyContent: "center", alignItems: "center", borderRadius: "100%", backgroundColor: "#fff" }}>
-            {/* <Entypo name="map" size={24} color="#060807" /> */}
+            <Entypo name="map" size={24} color="#060807" />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.navigate("User")} style={{ width: 50, height: 50, justifyContent: "center", alignItems: "center", borderRadius: "100%", backgroundColor: "#ffffff49" }}>
             <Text>
-              {/* <FontAwesome name="user" size={24} color="#fff" /> */}
+              <FontAwesome name="user" size={24} color="#fff" />
             </Text>
           </TouchableOpacity>
         </View>
         <View style={{ flexDirection: "row", gap: 5, backgroundColor: "#1E187B", padding: 10, borderRadius: 50 }}>
           <TouchableOpacity style={{ width: 50, height: 50, justifyContent: "center", alignItems: "center", borderRadius: 100, borderWidth: 1, borderRadius: 50, borderColor: "white" }}>
-            {/* <Ionicons name="add" size={30} color="white" /> */}
+            <AddIcon.component name={AddIcon.name} size={AddIcon.size} color={AddIcon.color} />
           </TouchableOpacity>
         </View>
-      </View>
+      </View> */}
     </View>
   )
 }

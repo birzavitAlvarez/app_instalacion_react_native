@@ -8,7 +8,7 @@ import LogoEntel from '../../assets/images/logoEntel.png'
 // import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 // import ForgotPasswordModal from '../components/ForgotPasswordModal';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-
+import Icon2 from 'react-native-vector-icons/FontAwesome';
 
 const LoginScreen = () => {
   const { signIn } = useContext(AuthContext);
@@ -70,7 +70,7 @@ const LoginScreen = () => {
             {/* <Text style={{ color: "#dbdbdbff" }}>Entel Perú Siente el verdadero Power</Text> */}
           </View>
           <View style={styles.passwordContainer}>
-            <Icon name="lock" size={30} color="#000" />
+            <Icon2 name="user" size={24} color="#ffffffff" />
             <TextInput
               placeholder="DNI"
               placeholderTextColor={"#fff"}
@@ -88,6 +88,7 @@ const LoginScreen = () => {
 
           <View style={styles.passwordContainer}>
             {/* <Entypo name="lock" size={24} color="#d6d4d4ff" /> */}
+            <Icon name="lock" size={24} color="#ffffffff" />
             <TextInput
               placeholder="Password"
               placeholderTextColor={"#ffff"}
@@ -105,7 +106,7 @@ const LoginScreen = () => {
             />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
               <Text style={styles.toggle}>
-                {showPassword ? <Text>SI</Text> : <Text>No</Text>}
+                {showPassword ? <Icon2 name="eye-slash" size={24} color="#ffffffff" /> : <Icon2 name="eye" size={24} color="#ffffffff" />}
               </Text>
             </TouchableOpacity>
           </View>

@@ -1,8 +1,19 @@
-// components/MenuCard.jsx
 import React from "react";
 import { TouchableOpacity, View, Text } from "react-native";
 
-export default function MenuCard({ Icon, iconName, iconColor = "#8F9392", title, description, onPress, titleColor = "#000" }) {
+export default function MenuCard({
+  Icon,
+  iconColor = "#8F9392",
+  title,
+  description,
+  onPress,
+  titleColor = "#000",
+}) {
+  const IconComponent = Icon?.component;
+  const iconName = Icon?.name;
+  const iconSize = Icon?.size || 24;
+  const iconColorFinal = Icon?.color || iconColor;
+
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -15,7 +26,9 @@ export default function MenuCard({ Icon, iconName, iconColor = "#8F9392", title,
       }}
     >
       <View style={{ paddingVertical: 10 }}>
-        {Icon && <Icon name={iconName} size={24} color={iconColor} />}
+        {IconComponent && (
+          <IconComponent name={iconName} size={iconSize} color={iconColorFinal} />
+        )}
       </View>
       <Text style={{ fontSize: 20, fontWeight: "700", color: titleColor }}>
         {title}
