@@ -214,6 +214,13 @@ const MapaScreen = () => {
                 initialRegion={DEFAULT_REGION}
                 showsUserLocation
                 showsCompass
+                zoomEnabled={true}
+                zoomControlEnabled={true}
+                rotateEnabled={true}
+                pitchEnabled={true}
+                showsBuildings={true}
+                showsTraffic={false}
+                showsIndoors={true}
             >
                 {markers.map((marker) => (
                     <Marker
