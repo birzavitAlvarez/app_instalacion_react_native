@@ -293,6 +293,17 @@ const NuevaInstalacionFallidaScreen = () => {
       return;
     }
 
+    const lugarSeleccionado = Object.values(lugarInstalacion).filter(Boolean).length;
+    if (lugarSeleccionado === 0) {
+      Toast.show({
+        type: 'error',
+        text1: 'Lugar requerido',
+        text2: 'Selecciona al menos un lugar de instalación',
+        position: 'bottom',
+      });
+      return;
+    }
+
     if (!observacion.trim()) {
       Toast.show({
         type: 'error',
@@ -313,39 +324,8 @@ const NuevaInstalacionFallidaScreen = () => {
       return;
     }
 
-    if (!signature) {
-      Toast.show({
-        type: 'error',
-        text1: 'Firma requerida',
-        text2: 'Se requiere la firma del cliente',
-        position: 'bottom',
-      });
-      return;
-    }
-
-    if (!nombreApellidos.trim()) {
-      Toast.show({
-        type: 'error',
-        text1: 'Campo requerido',
-        text2: 'Ingresa el nombre y apellidos',
-        position: 'bottom',
-      });
-      return;
-    }
-
-    if (!dni.trim()) {
-      Toast.show({
-        type: 'error',
-        text1: 'Campo requerido',
-        text2: 'Ingresa el DNI',
-        position: 'bottom',
-      });
-      return;
-    }
-
     try {
       setLoading(true);
-
 
       const fechaHoy = new Date().toISOString().slice(0, 10);
 
@@ -361,15 +341,39 @@ const NuevaInstalacionFallidaScreen = () => {
           visibilityTime: 4000,
         });
         setLoading(false);
-        return; 
+        return;
       }
 
       let fotoPath = "";
       if (fotoBase64) {
         console.log("Subiendo foto...");
         const resFoto = await uploadImageBase64(fotoBase64, codigoNevera);
-        if (resFoto?.fileName) fotoPath = resFoto.fileName;
-        console.log("Foto subida:", fotoPath);
+
+        if (resFoto?.fileName) {
+          fotoPath = resFoto.fileName;
+          console.log("Foto subida:", fotoPath);
+        } else {
+          console.error("⚠️ El backend no devolvió fileName para la foto.");
+          Toast.show({
+            type: "error",
+            text1: "Error",
+            text2: "No se pudo obtener la ruta de la foto desde el servidor.",
+            position: "bottom",
+            visibilityTime: 4000,
+          });
+          setLoading(false);
+          return;
+        }
+      } else {
+        Toast.show({
+          type: "error",
+          text1: "Error",
+          text2: "Debes tomar o subir una foto antes de continuar.",
+          position: "bottom",
+          visibilityTime: 4000,
+        });
+        setLoading(false);
+        return;
       }
 
       let firmaPath = "";
@@ -386,8 +390,12 @@ const NuevaInstalacionFallidaScreen = () => {
         if (firmaBase64) {
           console.log("Subiendo firma...");
           const resFirma = await uploadImageBase64(firmaBase64, codigoNevera);
-          if (resFirma?.fileName) firmaPath = resFirma.fileName;
-          console.log("Firma subida:", firmaPath);
+          if (resFirma?.fileName) {
+            firmaPath = resFirma.fileName;
+            console.log("Firma subida:", firmaPath);
+          } else {
+            console.warn("⚠️ El backend no devolvió fileName para la firma.");
+          }
         } else {
           console.warn("No se encontró base64 de la firma.");
         }
@@ -429,12 +437,11 @@ const NuevaInstalacionFallidaScreen = () => {
         fotoObservacion1Path: fotoPath,
         idNevera: 0,
         idUsuario: userInfo?.idUsuario,
-        clienteRespFirmaPath: firmaPath,
+        clienteRespFirmaPath: firmaPath || "-",
         clienteRespNombreApellido: nombreApellidos,
         clienteRespDni: dni,
         pdfPath: "",
       };
-
 
       console.log("Payload listo para enviar:", JSON.stringify(payload, null, 2));
 
@@ -451,10 +458,9 @@ const NuevaInstalacionFallidaScreen = () => {
         .map(([clave]) => clave)
         .join(",");
 
-      const observacionFinal = [
-        causasSeleccionadas || "",
-        lugarSeleccionado || ""
-      ].filter(Boolean).join(" // ");
+      const observacionFinal = [causasSeleccionadas, lugarSeleccionado]
+        .filter(Boolean)
+        .join(" // ");
 
       const payloadGestion = {
         cod_nevera: codigoNevera,
@@ -481,18 +487,18 @@ const NuevaInstalacionFallidaScreen = () => {
           position: "bottom",
           visibilityTime: 4000,
         });
-        setLoading(false);
         return;
       }
 
       Toast.show({
         type: "success",
         text1: "✓ Éxito",
-        text2: "Instalación fallida registradas correctamente",
+        text2: "Instalación fallida registrada correctamente",
         position: "bottom",
         visibilityTime: 3000,
       });
-      setCodigoNevera('');
+
+      setCodigoNevera("");
       setFotoBase64(null);
       setSignature(null);
       setObservacion("");
@@ -500,34 +506,37 @@ const NuevaInstalacionFallidaScreen = () => {
       setDni("");
       setFoto(null);
 
-      const causasVacias = Object.keys(causasFallo).reduce((acc, key) => {
-        acc[key] = false;
-        return acc;
-      }, {});
-      setCausasFallo(causasVacias);
+      setCausasFallo(Object.keys(causasFallo).reduce((acc, key) => ({ ...acc, [key]: false }), {}));
+      setLugarInstalacion(Object.keys(lugarInstalacion).reduce((acc, key) => ({ ...acc, [key]: false }), {}));
 
-      const lugaresVacios = Object.keys(lugarInstalacion).reduce((acc, key) => {
-        acc[key] = false;
-        return acc;
-      }, {});
-      setLugarInstalacion(lugaresVacios);
-
-      if (signatureRef.current) {
-        signatureRef.current.clearSignature();
-      }
+      if (signatureRef.current) signatureRef.current.clearSignature();
 
     } catch (error) {
       console.error("Error en instalación o gestión fallida:", error);
 
-      const backendMsg = error?.message || error?.response?.msg || "Error desconocido";
-      Toast.show({
-        type: "error",
-        text1: "Error",
-        text2: backendMsg,
-        position: "bottom",
-        visibilityTime: 3000,
-      });
+      if (error?.response?.data && typeof error.response.data === "object") {
+        const mensajes = Object.values(error.response.data).join("\n");
+        Toast.show({
+          type: "error",
+          text1: "Errores de validación",
+          text2: mensajes,
+          position: "bottom",
+          visibilityTime: 5000,
+        });
+      } else {
+        const backendMsg =
+          error?.message ||
+          error?.response?.data?.msg ||
+          "Error desconocido en el servidor";
 
+        Toast.show({
+          type: "error",
+          text1: "Error",
+          text2: backendMsg,
+          position: "bottom",
+          visibilityTime: 4000,
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -603,7 +612,7 @@ const NuevaInstalacionFallidaScreen = () => {
           <Text style={{ color: '#007AFF', marginTop: 8, fontSize: 12 }}>https://maps.google.com/?q={latitude},{longitude}</Text>
         </TouchableOpacity>
         {locationError && !latitude && (
-          <Text style={styles.errorText}>⚠️ {locationError}</Text>
+          <Text style={styles.errorText}>{locationError}</Text>
         )}
       </View>
 
@@ -681,7 +690,6 @@ const NuevaInstalacionFallidaScreen = () => {
         {loading && <ActivityIndicator size="large" color="#2b4a8b" style={styles.loader} />}
       </View>
 
-      {/* Firma del cliente */}
       <View style={styles.section}>
         <Text style={styles.label}>Firma del cliente</Text>
         <SignatureInput
@@ -689,6 +697,12 @@ const NuevaInstalacionFallidaScreen = () => {
           onSignatureChange={handleSignatureChange}
           error={null}
         />
+        <TouchableOpacity style={styles.btnEliminarFoto} onPress={() => {
+          if (signatureRef.current) signatureRef.current.clearSignature();
+          setSignature(null);
+        }}>
+          <Text style={styles.btnEliminarFotoText}>🗑️ Eliminar firma</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Nombres y Apellidos */}

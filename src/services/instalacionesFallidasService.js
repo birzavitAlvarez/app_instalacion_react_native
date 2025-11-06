@@ -39,8 +39,24 @@ export async function crearInstalacionFallida(data) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error("Error al registrar instalación fallida");
-  return await res.json();
+
+  let responseData = null;
+  try {
+    responseData = await res.json();
+  } catch {
+    responseData = null;
+  }
+
+  if (!res.ok) {
+    const backendMsg =
+      responseData?.msg ||
+      responseData?.message ||
+      JSON.stringify(responseData) ||
+      "Error desconocido al registrar instalación fallida";
+    throw new Error(backendMsg);
+  }
+
+  return responseData;
 }
 
 export async function registrarGestionFallida(data) {
@@ -49,9 +65,26 @@ export async function registrarGestionFallida(data) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error("Error al registrar gestión logística");
-  return await res.json();
+
+  let responseData = null;
+  try {
+    responseData = await res.json();
+  } catch {
+    responseData = null;
+  }
+
+  if (!res.ok) {
+    const backendMsg =
+      responseData?.msg ||
+      responseData?.message ||
+      JSON.stringify(responseData) ||
+      "Error desconocido al registrar gestión logística";
+    throw new Error(backendMsg);
+  }
+
+  return responseData;
 }
+
 
 export const validarActaFallidaPorDia = async (codigoNevera, fecha) => {
   try {
