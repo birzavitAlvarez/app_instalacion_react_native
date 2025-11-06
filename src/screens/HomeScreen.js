@@ -116,19 +116,48 @@ const HomeScreen = () => {
 
   if (isChecking) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F1F3F2" }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#F1F3F2",
+        }}
+      >
         <ActivityIndicator size="large" color="#2b4a8b" />
+        <Text style={{ marginTop: 10, color: "#2b4a8b", fontWeight: "bold" }}>
+          Verificando actualizaciones...
+        </Text>
       </View>
     );
   }
 
   if (blocked) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F1F3F2" }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#F1F3F2",
+          paddingHorizontal: 20,
+        }}
+      >
         <ActivityIndicator size="large" color="#2b4a8b" />
+        <Text
+          style={{
+            marginTop: 15,
+            color: "#2b4a8b",
+            fontWeight: "bold",
+            textAlign: "center",
+          }}
+        >
+          Debes actualizar la aplicación antes de continuar.
+        </Text>        
       </View>
     );
   }
+
 
 
 
