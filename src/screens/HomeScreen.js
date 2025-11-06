@@ -1,5 +1,6 @@
-import { View, Text, TouchableOpacity, ScrollView, Alert, Linking } from "react-native";
-import { useContext, useEffect } from "react"
+import { View, Text, TouchableOpacity, ScrollView, Alert, Linking, ActivityIndicator } from "react-native";
+import { AppState } from "react-native";
+import { useContext, useEffect, useState } from "react"
 import { AuthContext } from "../context/AuthContext"
 import { LocationContext } from "../context/LocationContext"
 // import Entypo from '@expo/vector-icons/Entypo';
@@ -9,21 +10,22 @@ import { LocationContext } from "../context/LocationContext"
 // import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 // import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from "@react-navigation/native";
-import { getAppVersion } from "../services/historialService";
 import MenuCard from "../components/MenuCard";
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import AntDesign from 'react-native-vector-icons/AntDesign';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Toast from 'react-native-toast-message';
+import { getAppVersion } from "../services/historialService";
 
 const CURRENT_BUILD_CODE = "AppTecnicosV2.2.15";
 const HomeScreen = () => {
-
-
   const navigation = useNavigation();
   const { signOut, userInfo } = useContext(AuthContext)
   const { checkGPSStatus } = useContext(LocationContext)
+
+  const [isChecking, setIsChecking] = useState(true);
+  const [blocked, setBlocked] = useState(false);
 
   const InstaIcon = { component: FontAwesome, name: 'th-list', color: '#8F9392', size: 24 };
   const HistoryIcon = { component: FontAwesome, name: 'history', color: '#8F9392', size: 24 };
@@ -33,10 +35,6 @@ const HomeScreen = () => {
   const LogoutIcon = { component: MaterialIcons, name: 'logout', color: 'red', size: 24 };
   const AddIcon = { component: Ionicons, name: 'add', color: '#fff', size: 30 };
 
-  useEffect(() => {
-    checkForUpdates();
-    checkGPS();
-  }, []);
 
   const checkGPS = async () => {
     try {
@@ -58,16 +56,15 @@ const HomeScreen = () => {
   const checkForUpdates = async () => {
     try {
       const data = await getAppVersion();
-      console.log("Versión del servidor:", data);
 
       if (data?.version !== CURRENT_BUILD_CODE) {
+        setBlocked(true);
         Alert.alert(
-          "Actualización disponible 🚀",
-          `Se detectó una nueva versión (${data.version}). ¿Deseas actualizar ahora?`,
+          "Actualización requerida",
+          `Se detectó una nueva versión (${data.version}). Debes actualizar antes de continuar.`,
           [
-            { text: "Más tarde", style: "cancel" },
             {
-              text: "Actualizar",
+              text: "Actualizar ahora",
               onPress: () => {
                 if (data.link) {
                   Linking.openURL(data.link);
@@ -82,14 +79,14 @@ const HomeScreen = () => {
                 }
               },
             },
-          ]
+          ],
+          { cancelable: false }
         );
       } else {
-        console.log("✅ App está actualizada.");
+        console.log("App actualizada correctamente");
       }
     } catch (error) {
       console.error("Error verificando la versión:", error);
-
       Toast.show({
         type: "error",
         text1: "Error",
@@ -97,8 +94,44 @@ const HomeScreen = () => {
         position: "bottom",
         visibilityTime: 3000,
       });
+    } finally {
+      setIsChecking(false);
     }
   };
+
+
+  useEffect(() => {
+    checkForUpdates();
+    checkGPS();
+
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        checkForUpdates();
+      }
+    });
+
+    return () => subscription.remove();
+  }, []);
+
+
+  if (isChecking) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F1F3F2" }}>
+        <ActivityIndicator size="large" color="#2b4a8b" />
+      </View>
+    );
+  }
+
+  if (blocked) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F1F3F2" }}>
+        <ActivityIndicator size="large" color="#2b4a8b" />
+      </View>
+    );
+  }
+
+
+
   return (
     <View style={{ flex: 1, backgroundColor: "#F1F3F2", paddingHorizontal: 20, }}>
       {/* <View style={{ paddingVertical: 40 }}>
