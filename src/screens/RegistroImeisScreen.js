@@ -100,7 +100,7 @@ const RegistroImeisScreen = ({ navigation }) => {
 
     if (listaImeis.includes(imeiTrimmed)) {
       Toast.show({
-        type: 'warning',
+        type: 'error',
         text1: 'IMEI duplicado',
         text2: 'Este IMEI ya está en la lista',
         position: 'bottom',
