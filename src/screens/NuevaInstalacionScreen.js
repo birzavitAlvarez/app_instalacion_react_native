@@ -22,6 +22,7 @@ import BarcodeScanner from '../components/BarcodeScanner';
 import ValidationModal from '../components/ValidationModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import VoiceInput from '../components/VoiceInput';
+import GPSRequiredModal from '../components/GPSRequiredModal';
 import { takePhotoCompressed, pickFromGalleryCompressed } from '../utils/imageUtil';
 import { requestCameraPermission, requestGalleryPermission } from '../utils/permissions';
 import { LocationContext } from '../context/LocationContext';
@@ -50,7 +51,11 @@ const NuevaInstalacionScreen = ({ navigation }) => {
   };
 
   // Obtener ubicación desde el contexto
-  const { location, getCurrentLocation } = useContext(LocationContext);
+  const { location, getCurrentLocation, checkGPSStatus, startGPSMonitoring, stopGPSMonitoring } = useContext(LocationContext);
+
+  // Estados para verificación de GPS
+  const [showGPSModal, setShowGPSModal] = useState(false);
+  const [isCheckingGPS, setIsCheckingGPS] = useState(false);
 
   // Control de pasos (1-5: Datos Generales, Funcionamiento Equipo, Observaciones, Firma Cliente, Vista Previa)
   const [currentStep, setCurrentStep] = useState(1);
@@ -219,6 +224,87 @@ const NuevaInstalacionScreen = ({ navigation }) => {
   // Manejar cambio de campo - Paso 1
   const handleChangeFieldStep1 = (fieldName, value) => {
     setFormDataStep1({ ...formDataStep1, [fieldName]: value });
+  };
+
+  // Verificar GPS al montar el componente
+  useEffect(() => {
+    const verifyGPS = async () => {
+      setIsCheckingGPS(true);
+      try {
+        const isEnabled = await checkGPSStatus();
+        if (!isEnabled) {
+          setShowGPSModal(true);
+        } else {
+          setShowGPSModal(false);
+        }
+      } catch (error) {
+        console.log('Error verificando GPS:', error);
+        setShowGPSModal(true);
+      } finally {
+        setIsCheckingGPS(false);
+      }
+    };
+
+    verifyGPS();
+
+    // Iniciar monitoreo continuo del GPS
+    const monitoringInterval = startGPSMonitoring((isEnabled) => {
+      if (!isEnabled) {
+        setShowGPSModal(true);
+        Toast.show({
+          type: 'error',
+          text1: 'GPS Desactivado',
+          text2: 'Por favor, activa el GPS para continuar',
+          position: 'bottom',
+          visibilityTime: 3000,
+        });
+      }
+    });
+
+    // Cleanup: detener monitoreo al desmontar
+    return () => {
+      if (monitoringInterval) {
+        clearInterval(monitoringInterval);
+      }
+      stopGPSMonitoring();
+    };
+  }, [checkGPSStatus, startGPSMonitoring, stopGPSMonitoring]);
+
+  // Reintentar verificación de GPS
+  const handleRetryGPS = async () => {
+    setIsCheckingGPS(true);
+    try {
+      const isEnabled = await checkGPSStatus();
+      if (isEnabled) {
+        setShowGPSModal(false);
+        Toast.show({
+          type: 'success',
+          text1: 'GPS Activado',
+          text2: 'Ahora puedes continuar con la instalación',
+          position: 'bottom',
+          visibilityTime: 2000,
+        });
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'GPS aún desactivado',
+          text2: 'Por favor, activa el GPS en la configuración',
+          position: 'bottom',
+          visibilityTime: 3000,
+        });
+      }
+    } catch (error) {
+      console.log('Error reintentando GPS:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'No se pudo verificar el estado del GPS',
+        position: 'bottom',
+        visibilityTime: 3000,
+      });
+    } finally {
+      setIsCheckingGPS(false);
+    }
   };
 
   // Manejar actualización del ICCID desde el autocompletado de IMEI
@@ -619,6 +705,32 @@ const NuevaInstalacionScreen = ({ navigation }) => {
 
   // Validar y mostrar modal (Paso 1 → Paso 2)
   const handleNext = async () => {
+    // Validar que el código de nevera no esté vacío
+    const codigoNevera = formDataStep1.codigoNevera?.trim();
+    if (!codigoNevera || codigoNevera === '') {
+      Toast.show({
+        type: 'error',
+        text1: 'Código de nevera requerido',
+        text2: 'Debes ingresar el código de nevera antes de continuar.',
+        position: 'bottom',
+        visibilityTime: 3500,
+      });
+      return;
+    }
+
+    // Validar que el IMEI no esté vacío y no sea "sin imei"
+    const imei = formDataStep1.imei?.trim().toLowerCase();
+    if (!imei || imei === '' || imei === 'sin imei') {
+      Toast.show({
+        type: 'error',
+        text1: 'IMEI requerido',
+        text2: 'Debes ingresar o escanear el IMEI del dispositivo antes de continuar.',
+        position: 'bottom',
+        visibilityTime: 3500,
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -741,7 +853,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     if (!formDataStep2.lugarInstalacion) {
       Toast.show({
         type: 'error',
-        text1: 'LUGAR DE INSTALACIÓN REQUERIDO',
+        text1: 'LUGAR DE INSTALACIÓN REQUERIDOestos campos',
         text2: 'Debe seleccionar un lugar de instalación',
         position: 'bottom',
         visibilityTime: 3000,
@@ -916,14 +1028,14 @@ const NuevaInstalacionScreen = ({ navigation }) => {
         iprevFotoPath: formDataStep2.fotoInspeccionPreviaFileName || null,
         latitud: instalacionData.latitud || '',
         longitud: instalacionData.longitud || '',
-        fotoDispInstaCajaMetalicaAbierta: null,
-        fotoDispInstaCajaMetalicaAbiertaPath: null,
-        fotoEmpalmeCable: null,
-        fotoEmpalmeCablePath: null,
-        fotoDispInstaCajaMetalicaCerrada: null,
-        fotoDispInstaCajaMetalicaCerradaPath: null,
-        fotoFachadaNevera: null,
-        fotoFachadeNeveraPath: null,
+        fotoDispInstaCajaMetalicaAbierta: formDataStep2.fotoCajaMetalicaAbiertaFileName ? 'OK' : null,
+        fotoDispInstaCajaMetalicaAbiertaPath: formDataStep2.fotoCajaMetalicaAbiertaFileName || null,
+        fotoEmpalmeCable: formDataStep2.fotoEmpalmeCableFileName ? 'OK' : null,
+        fotoEmpalmeCablePath: formDataStep2.fotoEmpalmeCableFileName || null,
+        fotoDispInstaCajaMetalicaCerrada: formDataStep2.fotoCajaMetalicaCerradaFileName ? 'OK' : null,
+        fotoDispInstaCajaMetalicaCerradaPath: formDataStep2.fotoCajaMetalicaCerradaFileName || null,
+        fotoFachadaNevera: formDataStep2.fotoFachadaNeveraFileName ? 'OK' : null,
+        fotoFachadeNeveraPath: formDataStep2.fotoFachadaNeveraFileName || null,
         transmisionRedCelular: 'SI',
         alertaDesconexion: 'SI',
         alertaReconexion: 'SI',
@@ -1171,6 +1283,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
       style={styles.container} 
       contentContainerStyle={styles.contentContainer}
       keyboardShouldPersistTaps="handled"
+      nestedScrollEnabled={true}
     >
       {/* Título Principal */}
       <Text style={styles.title}>INSTALACIÓN EQUIPO</Text>
@@ -1372,6 +1485,13 @@ const NuevaInstalacionScreen = ({ navigation }) => {
           </View>
         </TouchableOpacity>
       </Modal>
+      
+      {/* Modal de GPS Requerido */}
+      <GPSRequiredModal
+        visible={showGPSModal}
+        onRetry={handleRetryGPS}
+        isChecking={isCheckingGPS}
+      />
     </ScrollView>
   );
 };

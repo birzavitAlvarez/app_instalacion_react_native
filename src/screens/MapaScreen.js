@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useContext } from "react";
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Platform } from "react-native";
 import MapView, { Marker, Callout, PROVIDER_GOOGLE } from "react-native-maps";
 import Toast from "react-native-toast-message";
 import { GOOGLE_MAPS_API_KEY, DEFAULT_REGION } from "../config/maps";
@@ -7,6 +7,7 @@ import { AuthContext } from "../context/AuthContext";
 import { getUsuarioPersonalArea, listaItemsRutaByTecnico, actualizarCoordenadasUsuario } from "../services/logisticaService";
 import { useLocation } from "../hooks/useLocation";
 import { BlurView } from "@react-native-community/blur";
+import GPSRequiredModal from "../components/GPSRequiredModal";
 const MapaScreen = () => {
     const { userInfo } = useContext(AuthContext);
     const idUsuario = userInfo?.idUsuario;
@@ -14,7 +15,90 @@ const MapaScreen = () => {
     const [loading, setLoading] = useState(true);
     const [location, setLocation] = useState(null);
     const [isConnected, setIsConnected] = useState(false);
-    const { latitude, longitude, isLoading: locationLoading, error: locationError, getCurrentLocation } = useLocation();
+    const { latitude, longitude, isLoading: locationLoading, error: locationError, getCurrentLocation, checkGPSStatus, isGPSEnabled, startGPSMonitoring, stopGPSMonitoring } = useLocation();
+    const [showGPSModal, setShowGPSModal] = useState(false);
+    const [isCheckingGPS, setIsCheckingGPS] = useState(false);
+
+    // Verificar GPS al montar el componente y monitorear cambios
+    useEffect(() => {
+        const verifyGPS = async () => {
+            setIsCheckingGPS(true);
+            try {
+                const isEnabled = await checkGPSStatus();
+                if (!isEnabled) {
+                    setShowGPSModal(true);
+                } else {
+                    setShowGPSModal(false);
+                }
+            } catch (error) {
+                console.log('Error verificando GPS:', error);
+                setShowGPSModal(true);
+            } finally {
+                setIsCheckingGPS(false);
+            }
+        };
+
+        verifyGPS();
+
+        // Iniciar monitoreo continuo del GPS
+        const monitoringInterval = startGPSMonitoring((isEnabled) => {
+            if (!isEnabled) {
+                setShowGPSModal(true);
+                Toast.show({
+                    type: 'error',
+                    text1: 'GPS Desactivado',
+                    text2: 'Por favor, activa el GPS para continuar',
+                    position: 'bottom',
+                    visibilityTime: 3000,
+                });
+            }
+        });
+
+        // Cleanup: detener monitoreo al desmontar
+        return () => {
+            if (monitoringInterval) {
+                clearInterval(monitoringInterval);
+            }
+            stopGPSMonitoring();
+        };
+    }, [checkGPSStatus, startGPSMonitoring, stopGPSMonitoring]);
+
+    // Reintentar verificación de GPS
+    const handleRetryGPS = async () => {
+        setIsCheckingGPS(true);
+        try {
+            const isEnabled = await checkGPSStatus();
+            if (isEnabled) {
+                setShowGPSModal(false);
+                Toast.show({
+                    type: 'success',
+                    text1: 'GPS Activado',
+                    text2: 'Ahora puedes usar el mapa',
+                    position: 'bottom',
+                    visibilityTime: 2000,
+                });
+            } else {
+                Toast.show({
+                    type: 'error',
+                    text1: 'GPS aún desactivado',
+                    text2: 'Por favor, activa el GPS en la configuración',
+                    position: 'bottom',
+                    visibilityTime: 3000,
+                });
+            }
+        } catch (error) {
+            console.log('Error reintentando GPS:', error);
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'No se pudo verificar el estado del GPS',
+                position: 'bottom',
+                visibilityTime: 3000,
+            });
+        } finally {
+            setIsCheckingGPS(false);
+        }
+    };
 
     useEffect(() => {
         if (!idUsuario) return;
@@ -270,6 +354,12 @@ const MapaScreen = () => {
                     </View>
                 </View>
             )}
+
+            <GPSRequiredModal
+                visible={showGPSModal}
+                onRetry={handleRetryGPS}
+                isChecking={isCheckingGPS}
+            />
 
             <Toast />
         </View>

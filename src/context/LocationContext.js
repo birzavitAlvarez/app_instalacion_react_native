@@ -11,6 +11,8 @@ export const LocationProvider = ({ children }) => {
   const [watchId, setWatchId] = useState(null);
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [permissionChecked, setPermissionChecked] = useState(false);
+  const [isGPSEnabled, setIsGPSEnabled] = useState(true);
+  const [gpsCheckInterval, setGpsCheckInterval] = useState(null);
 
   // Solicitar permisos de ubicación
   const requestPermission = useCallback(async () => {
@@ -92,12 +94,18 @@ export const LocationProvider = ({ children }) => {
             };
             setLocation(loc);
             setError(null);
+            setIsGPSEnabled(true);
             setIsLoading(false);
             resolve(loc);
           }
         },
         (err) => {
-          console.log('Intento con baja precisión falló, intentando alta precisión...');
+          console.log('Intento con baja precisión falló, intentando alta precisión...', err);
+          
+          // Verificar si el error es por GPS desactivado
+          if (err.code === 2) {
+            setIsGPSEnabled(false);
+          }
           
           // Intento 2: Alta precisión, timeout más largo
           Geolocation.getCurrentPosition(
@@ -111,6 +119,7 @@ export const LocationProvider = ({ children }) => {
                 };
                 setLocation(loc);
                 setError(null);
+                setIsGPSEnabled(true);
                 setIsLoading(false);
                 resolve(loc);
               }
@@ -119,7 +128,15 @@ export const LocationProvider = ({ children }) => {
               if (!resolved) {
                 resolved = true;
                 console.error('Error obteniendo ubicación:', err2);
-                setError(err2.message);
+                
+                // Verificar si el error es por GPS desactivado
+                if (err2.code === 2) {
+                  setIsGPSEnabled(false);
+                  setError('GPS desactivado. Por favor, activa el GPS en la configuración de tu dispositivo.');
+                } else {
+                  setError(err2.message);
+                }
+                
                 setIsLoading(false);
                 reject(err2);
               }
@@ -142,6 +159,60 @@ export const LocationProvider = ({ children }) => {
       );
     });
   }, [permissionChecked, permissionGranted, requestPermission]);
+
+  // Verificar si el GPS está habilitado
+  const checkGPSStatus = useCallback(async () => {
+    try {
+      await new Promise((resolve, reject) => {
+        Geolocation.getCurrentPosition(
+          resolve,
+          reject,
+          { 
+            enableHighAccuracy: true, 
+            timeout: 5000,
+            maximumAge: 0,
+          }
+        );
+      });
+      setIsGPSEnabled(true);
+      return true;
+    } catch (err) {
+      console.log('Error verificando GPS:', err);
+      if (err.code === 2) {
+        setIsGPSEnabled(false);
+        return false;
+      }
+      setIsGPSEnabled(true);
+      return true;
+    }
+  }, []);
+
+  // Iniciar monitoreo continuo del GPS
+  const startGPSMonitoring = useCallback((callback) => {
+    // Limpiar intervalo anterior si existe
+    if (gpsCheckInterval) {
+      clearInterval(gpsCheckInterval);
+    }
+
+    // Verificar GPS cada 5 segundos
+    const interval = setInterval(async () => {
+      const isEnabled = await checkGPSStatus();
+      if (callback) {
+        callback(isEnabled);
+      }
+    }, 5000);
+
+    setGpsCheckInterval(interval);
+    return interval;
+  }, [checkGPSStatus, gpsCheckInterval]);
+
+  // Detener monitoreo del GPS
+  const stopGPSMonitoring = useCallback(() => {
+    if (gpsCheckInterval) {
+      clearInterval(gpsCheckInterval);
+      setGpsCheckInterval(null);
+    }
+  }, [gpsCheckInterval]);
 
   // Iniciar tracking de ubicación
   const startTracking = useCallback(() => {
@@ -205,6 +276,10 @@ export const LocationProvider = ({ children }) => {
     error,
     isLoading,
     getCurrentLocation,
+    isGPSEnabled,
+    checkGPSStatus,
+    startGPSMonitoring,
+    stopGPSMonitoring,
   };
 
   return (

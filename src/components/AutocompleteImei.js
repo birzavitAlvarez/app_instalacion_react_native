@@ -33,6 +33,15 @@ const AutocompleteImei = ({
   useEffect(() => {
     const searchSuggestions = async () => {
       const trimmedValue = value.trim();
+      const lowerValue = trimmedValue.toLowerCase();
+      
+      // No buscar si la palabra es "sin imei"
+      if (lowerValue === 'sin imei' || lowerValue === 'sinimei') {
+        setSuggestions([]);
+        setShowDropdown(false);
+        setLoading(false);
+        return;
+      }
       
       // Solo buscar sugerencias si tiene entre 5 y 9 caracteres
       if (trimmedValue.length >= 5 && trimmedValue.length < 10) {

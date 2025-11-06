@@ -5,7 +5,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Platform,
-  Dimensions, // Importamos Dimensions
+  Dimensions,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 
@@ -36,20 +36,28 @@ const VistaPrevia = ({ pdfUrl, loading }) => {
               <Text style={styles.loadingText}>Cargando documento...</Text>
             </View>
           )}
-          <WebView
-            source={{ uri: viewerUrl }}
-            style={styles.webview}
-            onLoadStart={() => setWebViewLoading(true)}
-            onLoadEnd={() => setWebViewLoading(false)}
-            onError={(syntheticEvent) => {
-              const { nativeEvent } = syntheticEvent;
-              console.error('WebView error: ', nativeEvent);
-              setWebViewLoading(false); // Asegúrate de ocultar el loading si hay error
-            }}
-            javaScriptEnabled={true}
-            domStorageEnabled={true}
-            startInLoadingState={true} // Muestra el indicador de carga nativo
-          />
+          <View style={styles.webviewWrapper}>
+            <WebView
+              source={{ uri: viewerUrl }}
+              style={styles.webview}
+              onLoadStart={() => setWebViewLoading(true)}
+              onLoadEnd={() => setWebViewLoading(false)}
+              onError={(syntheticEvent) => {
+                const { nativeEvent } = syntheticEvent;
+                console.error('WebView error: ', nativeEvent);
+                setWebViewLoading(false);
+              }}
+              javaScriptEnabled={true}
+              domStorageEnabled={true}
+              startInLoadingState={true}
+              scalesPageToFit={true}
+              showsVerticalScrollIndicator={true}
+              showsHorizontalScrollIndicator={true}
+              scrollEnabled={true}
+              nestedScrollEnabled={true}
+              bounces={true}
+            />
+          </View>
         </>
       ) : (
         <View style={styles.errorContainer}>
@@ -63,9 +71,10 @@ const VistaPrevia = ({ pdfUrl, loading }) => {
 
 const styles = StyleSheet.create({
   container: {
-    // La altura fija para que funcione dentro de ScrollView
-    height: windowHeight * 0.75, 
+    // Altura ajustada para permitir ver los botones de navegación
+    height: windowHeight * 0.55, 
     backgroundColor: '#fff',
+    marginBottom: 16,
   },
   loadingContainer: {
     // Contenedor para el estado de 'generando...'
@@ -92,8 +101,16 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
   },
+  webviewWrapper: {
+    flex: 1,
+    overflow: 'hidden',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
   webview: {
-    flex: 1, // El WebView llena el 'container'
+    flex: 1,
+    backgroundColor: '#fff',
   },
   errorContainer: {
     // Contenedor para el estado de error

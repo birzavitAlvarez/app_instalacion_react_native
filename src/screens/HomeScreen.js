@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, ScrollView, Alert, Linking } from "react-native";
 import { useContext, useEffect } from "react"
 import { AuthContext } from "../context/AuthContext"
+import { LocationContext } from "../context/LocationContext"
 // import Entypo from '@expo/vector-icons/Entypo';
 // import AntDesign from '@expo/vector-icons/AntDesign';
 // import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -14,13 +15,15 @@ import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import AntDesign from 'react-native-vector-icons/AntDesign';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import Toast from 'react-native-toast-message';
 
-const CURRENT_BUILD_CODE = 1;
+const CURRENT_BUILD_CODE = "AppTecnicosV2.2.15";
 const HomeScreen = () => {
 
 
   const navigation = useNavigation();
   const { signOut, userInfo } = useContext(AuthContext)
+  const { checkGPSStatus } = useContext(LocationContext)
 
   const InstaIcon = { component: FontAwesome, name: 'th-list', color: '#8F9392', size: 24 };
   const HistoryIcon = { component: FontAwesome, name: 'history', color: '#8F9392', size: 24 };
@@ -32,14 +35,32 @@ const HomeScreen = () => {
 
   useEffect(() => {
     checkForUpdates();
+    checkGPS();
   }, []);
+
+  const checkGPS = async () => {
+    try {
+      const isEnabled = await checkGPSStatus();
+      if (!isEnabled) {
+        Toast.show({
+          type: 'info',
+          text1: 'GPS Desactivado',
+          text2: 'Por favor, activa el GPS para usar todas las funciones de la app',
+          position: 'bottom',
+          visibilityTime: 5000,
+        });
+      }
+    } catch (error) {
+      console.log('Error verificando GPS:', error);
+    }
+  };
 
   const checkForUpdates = async () => {
     try {
       const data = await getAppVersion();
       console.log("Versión del servidor:", data);
 
-      if (data?.code > CURRENT_BUILD_CODE) {
+      if (data?.version !== CURRENT_BUILD_CODE) {
         Alert.alert(
           "Actualización disponible 🚀",
           `Se detectó una nueva versión (${data.version}). ¿Deseas actualizar ahora?`,
@@ -115,6 +136,7 @@ const HomeScreen = () => {
             iconName="help-circle"
             title="Soporte"
             description="¿Necesita ayuda?"
+            onPress={() => Linking.openURL('tel:+51991587659')}
           />
         </View>
 
@@ -154,6 +176,7 @@ const HomeScreen = () => {
           </TouchableOpacity>
         </View>
       </View> */}
+      <Toast />
     </View>
   )
 }

@@ -18,6 +18,7 @@ import SignatureInput from '../components/SignatureInput';
 import EnhancedInput from '../components/EnhancedInput';
 import BarcodeScanner from '../components/BarcodeScanner';
 import VoiceInput from '../components/VoiceInput';
+import GPSRequiredModal from '../components/GPSRequiredModal';
 import { takePhotoCompressed, pickFromGalleryCompressed, convertImageToBase64 } from '../utils/imageUtil';
 import { requestCameraPermission, requestGalleryPermission } from '../utils/permissions';
 import AutocompleteNeveraInput from '../components/AutocompleteNeveraInput';
@@ -66,7 +67,92 @@ const NuevaInstalacionFallidaScreen = () => {
   const [currentVoiceFieldLabel, setCurrentVoiceFieldLabel] = useState('');
 
   // Ubicación GPS
-  const { latitude, longitude, isLoading: locationLoading, error: locationError, getCurrentLocation } = useLocation();
+  const { latitude, longitude, isLoading: locationLoading, error: locationError, getCurrentLocation, checkGPSStatus, startGPSMonitoring, stopGPSMonitoring } = useLocation();
+
+  // Estados para verificación de GPS
+  const [showGPSModal, setShowGPSModal] = useState(false);
+  const [isCheckingGPS, setIsCheckingGPS] = useState(false);
+
+  // Verificar GPS al montar el componente
+  useEffect(() => {
+    const verifyGPS = async () => {
+      setIsCheckingGPS(true);
+      try {
+        const isEnabled = await checkGPSStatus();
+        if (!isEnabled) {
+          setShowGPSModal(true);
+        } else {
+          setShowGPSModal(false);
+        }
+      } catch (error) {
+        console.log('Error verificando GPS:', error);
+        setShowGPSModal(true);
+      } finally {
+        setIsCheckingGPS(false);
+      }
+    };
+
+    verifyGPS();
+
+    // Iniciar monitoreo continuo del GPS
+    const monitoringInterval = startGPSMonitoring((isEnabled) => {
+      if (!isEnabled) {
+        setShowGPSModal(true);
+        Toast.show({
+          type: 'error',
+          text1: 'GPS Desactivado',
+          text2: 'Por favor, activa el GPS para continuar',
+          position: 'bottom',
+          visibilityTime: 3000,
+        });
+      }
+    });
+
+    // Cleanup: detener monitoreo al desmontar
+    return () => {
+      if (monitoringInterval) {
+        clearInterval(monitoringInterval);
+      }
+      stopGPSMonitoring();
+    };
+  }, [checkGPSStatus, startGPSMonitoring, stopGPSMonitoring]);
+
+  // Reintentar verificación de GPS
+  const handleRetryGPS = async () => {
+    setIsCheckingGPS(true);
+    try {
+      const isEnabled = await checkGPSStatus();
+      if (isEnabled) {
+        setShowGPSModal(false);
+        Toast.show({
+          type: 'success',
+          text1: 'GPS Activado',
+          text2: 'Ahora puedes continuar con la instalación fallida',
+          position: 'bottom',
+          visibilityTime: 2000,
+        });
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'GPS aún desactivado',
+          text2: 'Por favor, activa el GPS en la configuración',
+          position: 'bottom',
+          visibilityTime: 3000,
+        });
+      }
+    } catch (error) {
+      console.log('Error reintentando GPS:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'No se pudo verificar el estado del GPS',
+        position: 'bottom',
+        visibilityTime: 3000,
+      });
+    } finally {
+      setIsCheckingGPS(false);
+    }
+  };
 
   // Mostrar mensaje de GPS activado al entrar
   useEffect(() => {
@@ -762,6 +848,13 @@ const NuevaInstalacionFallidaScreen = () => {
         onResult={handleVoiceResult}
         fieldLabel={currentVoiceFieldLabel}
         removeSpaces={true}
+      />
+
+      {/* Modal de GPS Requerido */}
+      <GPSRequiredModal
+        visible={showGPSModal}
+        onRetry={handleRetryGPS}
+        isChecking={isCheckingGPS}
       />
     </ScrollView>
   );
