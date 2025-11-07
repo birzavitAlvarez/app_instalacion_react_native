@@ -37,6 +37,7 @@ const Historial = () => {
         const { efectivas, fallidas } = await fetchHistorialInstalaciones(idUsuario);
         setEfectivas(efectivas);
         setFallidas(fallidas);
+        console.log(fallidas)
       } catch (error) {
         console.error(error);
         Alert.alert("Error", "No se pudo cargar el historial.");
@@ -84,7 +85,7 @@ const Historial = () => {
     <View style={[styles.card, { borderLeftColor: color }]}>
       <View style={{ flex: 1 }}>
         <Text style={styles.nombre}>
-          {item.clienteRespNombreApellido || "Sin nombre"}
+          {item.pdfPath || "Sin nombre"}
         </Text>
         <Text style={styles.fecha}>
           Fecha: {new Date(item.createdAt).toLocaleString("es-PE")}
@@ -217,7 +218,7 @@ const styles = StyleSheet.create({
   },
   nombre: {
     fontWeight: "600",
-    fontSize: 16,
+    fontSize: 14,
   },
   fecha: {
     color: "#6B7280",

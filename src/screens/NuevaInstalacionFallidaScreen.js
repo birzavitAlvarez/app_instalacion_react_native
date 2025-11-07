@@ -660,16 +660,14 @@ const NuevaInstalacionFallidaScreen = () => {
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <Text style={styles.title}>INSTALACIÓN FALLIDA</Text>
 
-      {/* Código de Nevera */}
       <View style={styles.section}>
         <Text style={styles.label}>Código de Nevera</Text>
         <AutocompleteNevera
           value={codigoNevera}
           onChangeText={setCodigoNevera}
-          onBarcodePress={handleBarcodeScan}
-          onMicrophonePress={() => handleVoiceInput('codigoNevera', 'Código de Nevera')}
+          onBarcodeScan={handleBarcodeScan}
+          onVoiceInput={() => handleVoiceInput('codigoNevera', 'Código de Nevera')}
         />
-
       </View>
 
       {/* Ubicación */}
@@ -856,6 +854,7 @@ const NuevaInstalacionFallidaScreen = () => {
         onRetry={handleRetryGPS}
         isChecking={isCheckingGPS}
       />
+      <Toast />
     </ScrollView>
   );
 };

@@ -8,6 +8,16 @@ import { getUsuarioPersonalArea, listaItemsRutaByTecnico, actualizarCoordenadasU
 import { useLocation } from "../hooks/useLocation";
 import { BlurView } from "@react-native-community/blur";
 import GPSRequiredModal from "../components/GPSRequiredModal";
+import Icon from 'react-native-vector-icons/FontAwesome';
+import { SvgXml } from "react-native-svg";
+
+const svgNevera = `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor">
+  <path fill-rule="evenodd" d="m11.54 22.351.07.04.028.016a.76.76 0 0 0 .723 0l.028-.015.071-.041a16.975 16.975 0 0 0 1.144-.742 19.58 19.58 0 0 0 2.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 0 0-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 0 0 2.682 2.282 16.975 16.975 0 0 0 1.145.742ZM12 13.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clip-rule="evenodd" />
+</svg>
+`;
+
+
 const MapaScreen = () => {
     const { userInfo } = useContext(AuthContext);
     const idUsuario = userInfo?.idUsuario;
@@ -18,8 +28,6 @@ const MapaScreen = () => {
     const { latitude, longitude, isLoading: locationLoading, error: locationError, getCurrentLocation, checkGPSStatus, isGPSEnabled, startGPSMonitoring, stopGPSMonitoring } = useLocation();
     const [showGPSModal, setShowGPSModal] = useState(false);
     const [isCheckingGPS, setIsCheckingGPS] = useState(false);
-
-    // Verificar GPS al montar el componente y monitorear cambios
     useEffect(() => {
         const verifyGPS = async () => {
             setIsCheckingGPS(true);
@@ -40,7 +48,6 @@ const MapaScreen = () => {
 
         verifyGPS();
 
-        // Iniciar monitoreo continuo del GPS
         const monitoringInterval = startGPSMonitoring((isEnabled) => {
             if (!isEnabled) {
                 setShowGPSModal(true);
@@ -54,7 +61,6 @@ const MapaScreen = () => {
             }
         });
 
-        // Cleanup: detener monitoreo al desmontar
         return () => {
             if (monitoringInterval) {
                 clearInterval(monitoringInterval);
@@ -63,7 +69,6 @@ const MapaScreen = () => {
         };
     }, [checkGPSStatus, startGPSMonitoring, stopGPSMonitoring]);
 
-    // Reintentar verificación de GPS
     const handleRetryGPS = async () => {
         setIsCheckingGPS(true);
         try {
@@ -169,6 +174,8 @@ const MapaScreen = () => {
                 const dni = usuarioRes.dni;
                 const rutaRes = await listaItemsRutaByTecnico(dni);
 
+                console.log("📦 Datos crudos de la API:", rutaRes);
+
                 if (rutaRes.status === 1 && Array.isArray(rutaRes.data)) {
                     const grouped = Object.values(
                         rutaRes.data.reduce((acc, item) => {
@@ -184,7 +191,7 @@ const MapaScreen = () => {
                         }, {})
                     );
 
-                    let formatted = grouped.map((item, index) => ({
+                    const formatted = grouped.map((item, index) => ({
                         id: index,
                         latitude: parseFloat(item.latitud),
                         longitude: parseFloat(item.longitud),
@@ -195,44 +202,7 @@ const MapaScreen = () => {
                         color: item.color || "red",
                     }));
 
-                    const ajustarCoordenadasDuplicadas = (markers) => {
-                        const seen = {};
-                        const EARTH_RADIUS = 6371000;
-                        const METERS_OFFSET = 50;
-
-                        const metersToDegrees = (meters) => (meters / EARTH_RADIUS) * (180 / Math.PI);
-
-                        return markers.map((m, index) => {
-                            const key = `${m.latitude.toFixed(5)},${m.longitude.toFixed(5)}`;
-
-                            if (seen[key]) {
-                                const count = seen[key].length;
-
-                                const angle = (count * (2 * Math.PI)) / 6;
-
-                                const offsetLat = metersToDegrees(METERS_OFFSET * Math.cos(angle));
-                                const offsetLng =
-                                    metersToDegrees(METERS_OFFSET * Math.sin(angle)) /
-                                    Math.cos(m.latitude * Math.PI / 180);
-
-                                seen[key].push(m.id);
-
-                                return {
-                                    ...m,
-                                    latitude: m.latitude + offsetLat,
-                                    longitude: m.longitude + offsetLng,
-                                    desplazado: true,
-                                };
-                            } else {
-                                seen[key] = [m.id];
-                                return { ...m, desplazado: false };
-                            }
-                        });
-                    };
-
-
-
-                    formatted = ajustarCoordenadasDuplicadas(formatted);
+                    console.log("📍 Markers formateados:", formatted);
 
                     setMarkers(formatted);
                 } else {
@@ -244,7 +214,7 @@ const MapaScreen = () => {
                     });
                 }
             } catch (error) {
-                console.error("Error mapa:", error);
+                console.error("❌ Error mapa:", error);
                 Toast.show({
                     type: "error",
                     text1: "Error al cargar mapa",
@@ -258,6 +228,7 @@ const MapaScreen = () => {
 
         cargarDataMapa();
     }, [idUsuario]);
+
 
 
     if (GOOGLE_MAPS_API_KEY === 'API_KEY') {
@@ -280,7 +251,6 @@ const MapaScreen = () => {
             </View>
         );
     }
-
 
     return (
         <View style={styles.container}>
@@ -313,19 +283,21 @@ const MapaScreen = () => {
                             latitude: marker.latitude,
                             longitude: marker.longitude,
                         }}
-                        pinColor={marker.color}
                     >
+                        <SvgXml xml={svgNevera} color={marker.color || "#3F51B5"} stroke={"#ffff"} strokeWidth={0.5} width={36} height={36} />
+                        {/* <Icon name="map-marker" size={32} color={marker.color || "#3F51B5"}  /> */}
                         <Callout tooltip>
                             <View style={styles.callout}>
                                 <Text style={styles.title}>{marker.title}</Text>
                                 <Text style={styles.text}>{marker.direccion}</Text>
                                 <Text style={styles.text}>Vendedor: {marker.vendedor}</Text>
-
                                 <Text style={[styles.text, { marginTop: 6, fontWeight: "bold" }]}>
                                     Neveras:
                                 </Text>
                                 {marker.neveras.map((n, i) => (
-                                    <Text key={i} style={styles.text}>• {n}</Text>
+                                    <Text key={i} style={styles.text}>
+                                        • {n}
+                                    </Text>
                                 ))}
 
                                 {marker.desplazado && (
@@ -333,12 +305,15 @@ const MapaScreen = () => {
                                         Posición ajustada para evitar superposición
                                     </Text>
                                 )}
+                                <View style={{ position: "absolute", bottom: 0, right: 0, padding: 2 }}>
+                                    <Text style={{ fontSize: 10, color: "#adadadff" }}>{marker.color}</Text>
+                                </View>
                             </View>
                         </Callout>
-
                     </Marker>
                 ))}
             </MapView>
+
             {(loading || !latitude || !longitude) && (
                 <View style={styles.loadingOverlay}>
                     {Platform.OS === "ios" ? (
@@ -400,6 +375,7 @@ const styles = StyleSheet.create({
     },
     callout: {
         backgroundColor: "white",
+        position: "relative",
         borderRadius: 10,
         padding: 10,
         width: 200,
