@@ -95,3 +95,19 @@ To learn more about React Native, take a look at the following resources:
 - [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
 - [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
 - [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+
+
+
+# build
+cd android
+.\gradlew.bat clean
+cd ..
+
+npx react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res
+
+cd android
+.\gradlew.bat assembleDebug
+cd ..
+
+revisar:
+android\app\build\outputs\apk\debug\app-debug.apk
