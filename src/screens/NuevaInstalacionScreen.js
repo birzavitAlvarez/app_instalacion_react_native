@@ -221,6 +221,20 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     return value ? 'SI' : 'NO';
   };
 
+  // Función helper para mostrar Toast de forma segura
+  const showToast = (config) => {
+    // Ocultar cualquier Toast anterior
+    Toast.hide();
+    
+    // Mostrar el nuevo Toast con un pequeño delay
+    setTimeout(() => {
+      Toast.show({
+        ...config,
+        autoHide: true, // Siempre auto-ocultar
+      });
+    }, 100);
+  };
+
   // Manejar cambio de campo - Paso 1
   const handleChangeFieldStep1 = (fieldName, value) => {
     setFormDataStep1({ ...formDataStep1, [fieldName]: value });
@@ -817,14 +831,45 @@ const NuevaInstalacionScreen = ({ navigation }) => {
 
     } catch (error) {
       setLoading(false);
-      console.error('Error en validación:', error);
       
-      Toast.show({
+      // Determinar el mensaje de error específico
+      let errorTitle = 'Error de validación';
+      let errorMessage = 'No se pudo validar los datos';
+      
+      if (error.status === 400 || error.isValidationError) {
+        // Error 400 o error de validación con mensaje personalizado
+        errorMessage = error.message;
+        
+        // Personalizar el título según el tipo de error
+        if (error.message.includes('Nevera')) {
+          errorTitle = 'Nevera no disponible';
+        } else if (error.message.includes('IMEI')) {
+          errorTitle = 'IMEI no disponible';
+        }
+      } else if (error.response?.status === 400) {
+        // Error 400 de axios sin procesar
+        errorMessage = error.response?.data?.msg || 
+                      error.response?.data?.message || 
+                      'Los datos ingresados no son válidos. Verifica el código de nevera y el IMEI.';
+      } else if (error.message) {
+        // Otro tipo de error con mensaje
+        errorMessage = error.message;
+      }
+      
+      // Solo mostrar error completo en consola si NO es un error de validación
+      if (!error.isValidationError) {
+        console.error('Error en validación:', error);
+      }
+      
+      // Mostrar Toast de error de forma segura
+      showToast({
         type: 'error',
-        text1: 'Error de validación',
-        text2: error.response?.data?.msg || 'No se pudo validar los datos',
+        text1: errorTitle,
+        text2: errorMessage,
         position: 'bottom',
-        visibilityTime: 3000,
+        visibilityTime: 5000,
+        topOffset: 30,
+        bottomOffset: 40,
       });
     }
   };
@@ -963,12 +1008,15 @@ const NuevaInstalacionScreen = ({ navigation }) => {
       setLoading(false);
       console.error('Error en validación (Paso 2):', error);
       
-      Toast.show({
+      // Mostrar Toast de error de forma segura
+      showToast({
         type: 'error',
         text1: 'Error de validación',
-        text2: error.response?.data?.msg || 'No se pudo validar los datos',
+        text2: error.response?.data?.msg || error.message || 'No se pudo validar los datos',
         position: 'bottom',
-        visibilityTime: 3000,
+        visibilityTime: 5000,
+        topOffset: 30,
+        bottomOffset: 40,
       });
     }
   };
@@ -1492,6 +1540,9 @@ const NuevaInstalacionScreen = ({ navigation }) => {
         onRetry={handleRetryGPS}
         isChecking={isCheckingGPS}
       />
+
+      {/* Toast Messages */}
+      <Toast />
     </ScrollView>
   );
 };

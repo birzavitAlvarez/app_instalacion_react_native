@@ -114,6 +114,23 @@ export const validateNeveraStatus = async (codigoNevera) => {
     console.log('Estado de nevera validado:', response.data);
     return response.data;
   } catch (error) {
+    // Para errores 400, solo loguear el mensaje sin el stack trace completo
+    if (error.response?.status === 400) {
+      const errorMessage = error.response?.data?.msg || 
+                          error.response?.data?.message || 
+                          'El código de nevera no existe o no es válido';
+      
+      console.log('⚠️ Validación de nevera:', errorMessage);
+      
+      // NO mostrar Toast aquí - dejamos que el componente lo maneje
+      const enhancedError = new Error(errorMessage);
+      enhancedError.status = 400;
+      enhancedError.isValidationError = true;
+      enhancedError.originalError = error;
+      throw enhancedError;
+    }
+    
+    // Para otros errores, sí mostrar el log completo
     console.error('Error validando estado de nevera:', error);
     throw error;
   }
@@ -139,6 +156,22 @@ export const validateTechnicianSync = async (fecha, latitud, longitud, imei, tip
     console.log('Sincronización validada:', response.data);
     return response.data;
   } catch (error) {
+    // Para errores 400, solo loguear el mensaje sin el stack trace completo
+    if (error.response?.status === 400) {
+      const errorMessage = error.response?.data?.msg || 
+                          error.response?.data?.message || 
+                          'El IMEI ya está registrado o no es válido para esta operación';
+      
+      console.log('⚠️ Validación de sincronización:', errorMessage);
+      
+      const enhancedError = new Error(errorMessage);
+      enhancedError.status = 400;
+      enhancedError.isValidationError = true;
+      enhancedError.originalError = error;
+      throw enhancedError;
+    }
+    
+    // Para otros errores, sí mostrar el log completo
     console.error('Error validando sincronización:', error);
     throw error;
   }
