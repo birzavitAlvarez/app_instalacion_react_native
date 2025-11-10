@@ -1,81 +1,164 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, FlatList, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import EnhancedInput from './EnhancedInput';
-import { buscarNeveraPorCodigo } from '../services/instalacionesFallidasService';
+import React, { useState, useEffect, useRef } from "react";
+import {
+  View,
+  TextInput,
+  Text,
+  TouchableOpacity,
+  FlatList,
+  ActivityIndicator,
+  Keyboard,
+  StyleSheet,
+} from "react-native";
+import Icon from "react-native-vector-icons/MaterialIcons";
+import Toast from "react-native-toast-message";
+import { searchNeverasByCodigo2 } from "../services/neveraService";
 
 const AutocompleteNeveraInput = ({
   value,
   onChangeText,
-  onBarcodePress,
-  onMicrophonePress
+  onSelectNevera,
+  onBarcodeScan,
+  onVoiceInput,
+  editable = true,
 }) => {
   const [suggestions, setSuggestions] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
-  const isSelectingRef = useRef(false);
+  const [loading, setLoading] = useState(false);
+  const debounceTimer = useRef(null);
 
   useEffect(() => {
-    if (isSelectingRef.current) {
-      isSelectingRef.current = false;
-      return;
-    }
+    const searchSuggestions = async () => {
+      if (value.length >= 1) {
+        setLoading(true);
+        try {
+          const results = await searchNeverasByCodigo2(value);
 
-    if (value.length >= 3) {
-      fetchSuggestions(value);
-    } else {
-      setSuggestions([]);
-      setShowDropdown(false);
-    }
+          if (results.length > 1) {
+            setSuggestions(results.slice(0, 10));
+            setShowDropdown(true);
+          } else if (results.length === 1) {
+            const nevera = results[0];
+            onChangeText(nevera.codigo);
+            setShowDropdown(false);
+            setSuggestions([]);
+            Keyboard.dismiss();
+
+            if (onSelectNevera) onSelectNevera(nevera);
+          } else {
+            setSuggestions([]);
+            setShowDropdown(false);
+
+            onChangeText('');
+
+            Toast.show({
+              type: 'error',
+              text1: 'Nevera no encontrada',
+              text2: 'El código ingresado no existe en la base de datos',
+              position: 'top',
+              visibilityTime: 4000,
+            });
+          }
+        } catch (error) {
+          Toast.show({
+            type: 'error',
+            text1: 'Error',
+            text2: error.message || 'Ocurrió un problema con la búsqueda',
+            position: 'top',
+            visibilityTime: 4000,
+          });
+          console.log(error.message)
+          setSuggestions([]);
+          setShowDropdown(false);
+          onChangeText('');
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setSuggestions([]);
+        setShowDropdown(false);
+      }
+    };
+
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(searchSuggestions, 500);
+
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
   }, [value]);
-
-  const fetchSuggestions = async (query) => {
-  try {
-    const data = await buscarNeveraPorCodigo(query);
-    if (query.length >= 3 && query === value.trim()) {
-      setSuggestions(data);
-      setShowDropdown(data.length > 0);
-    } else {
-      setSuggestions([]);
-      setShowDropdown(false);
-    }
-  } catch (error) {
-    console.error('Error al buscar neveras:', error);
-    setSuggestions([]);
-    setShowDropdown(false);
-  }
-};
 
 
   const handleSelectSuggestion = (item) => {
-    isSelectingRef.current = true;
     onChangeText(item.codigo);
     setShowDropdown(false);
+    setSuggestions([]);
+    Keyboard.dismiss();
+
+    if (onSelectNevera) onSelectNevera(item);
   };
 
   return (
-    <View style={{ zIndex: 10 }}>
-      <EnhancedInput
-        value={value}
-        onChangeText={onChangeText}
-        placeholder="Buscar por código"
-        showBarcode={true}
-        showMicrophone={true}
-        onBarcodePress={onBarcodePress}
-        onMicrophonePress={onMicrophonePress}
-      />
+    <View>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          borderWidth: 1,
+          borderColor: "#ccc",
+          borderRadius: 8,
+          paddingHorizontal: 10,
+          height: 45,
+        }}
+      >
+        <TextInput
+          style={styles.input}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder="Código de nevera"
+          placeholderTextColor="#999"
+          editable={editable}
+          autoCapitalize="characters"
+        />
 
-      {showDropdown && value.length >= 3 && (
-        <View style={styles.dropdown}>
+        {loading && <ActivityIndicator size="small" color="#3F51B5" />}
+        <TouchableOpacity onPress={onVoiceInput}>
+          <Icon name="mic" size={22} color="#3F51B5" />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={onBarcodeScan}>
+          <Icon name="qr-code-scanner" size={22} color="#3F51B5" />
+        </TouchableOpacity>
+      </View>
+
+      {showDropdown && suggestions.length > 0 && (
+        <View style={styles.dropdownContainer}>
+          <View style={styles.dropdownHeader}>
+            <Text style={styles.dropdownTitle}>
+              {suggestions.length} nevera{suggestions.length !== 1 ? 's' : ''} encontrada{suggestions.length !== 1 ? 's' : ''}
+            </Text>
+            {/* <TouchableOpacity
+              onPress={() => setShowDropdown(false)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Icon name="close" size={20} color="#666" />
+            </TouchableOpacity> */}
+          </View>
           <FlatList
             data={suggestions}
-            keyExtractor={(item) => item.codigo}
             renderItem={({ item }) => (
               <TouchableOpacity
-                style={styles.suggestionItem}
+                style={{
+                  paddingVertical: 8,
+                  paddingHorizontal: 12,
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                }}
                 onPress={() => handleSelectSuggestion(item)}
               >
                 <Text>{item.codigo}</Text>
+                <Icon name="chevron-right" size={18} color="#999" />
               </TouchableOpacity>
             )}
+            keyExtractor={(item, index) => index.toString()}
           />
         </View>
       )}
@@ -84,20 +167,77 @@ const AutocompleteNeveraInput = ({
 };
 
 const styles = StyleSheet.create({
-  dropdown: {
-    position: 'absolute',
-    top: 55,
-    width: '100%',
-    backgroundColor: '#fff',
-    borderColor: '#ccc',
+  container: {
+    zIndex: 1000,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
-    borderRadius: 4,
-    maxHeight: 200,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    height: 50,
+  },
+  input: {
+    flex: 1,
+    fontSize: 16,
+    color: '#000',
+    paddingVertical: 8,
+  },
+  loadingIndicator: {
+    marginHorizontal: 8,
+  },
+  iconButton: {
+    padding: 8,
+    marginLeft: 4,
+  },
+  dropdownContainer: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderTopWidth: 0,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+    maxHeight: 350,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  dropdownHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    backgroundColor: '#f8f8f8',
+  },
+  dropdownTitle: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+  },
+  suggestionsList: {
+    maxHeight: 300,
   },
   suggestionItem: {
-    padding: 10,
-    borderBottomColor: '#eee',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  suggestionCode: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
   },
 });
 

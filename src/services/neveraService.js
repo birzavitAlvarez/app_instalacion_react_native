@@ -176,3 +176,25 @@ export const validateTechnicianSync = async (fecha, latitud, longitud, imei, tip
     throw error;
   }
 };
+
+
+export const searchNeverasByCodigo2 = async (codigo) => {
+  try {
+    const response = await fetch(
+      `${BASE_URL}/search/cod-nevera2-fallidas?cod_nevera=${codigo}`
+    );
+    const data = await response.json();
+
+    if (data.status === 0) {
+      throw new Error(data.error || "Nevera no registrada");
+    }
+
+    if (Array.isArray(data)) return data;
+
+    if (data && typeof data === "object") return [data];
+
+    return [];
+  } catch (error) {
+    throw error;
+  }
+};

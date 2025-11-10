@@ -25,6 +25,8 @@ import AutocompleteNeveraInput from '../components/AutocompleteNeveraInput';
 import AutocompleteNevera from '../components/AutocompleteNevera';
 import { uploadImageBase64, crearInstalacionFallida, registrarGestionFallida, validarActaFallidaPorDia } from '../services/instalacionesFallidasService';
 import { AuthContext } from '../context/AuthContext';
+import { searchNeverasByCodigo2 } from "../services/neveraService";
+
 const NuevaInstalacionFallidaScreen = () => {
   // Estados
   const { signOut, userInfo } = useContext(AuthContext)
@@ -115,7 +117,7 @@ const NuevaInstalacionFallidaScreen = () => {
       }
       stopGPSMonitoring();
     };
-  }, [checkGPSStatus, startGPSMonitoring, stopGPSMonitoring]);
+  }, []);
 
   // Reintentar verificación de GPS
   const handleRetryGPS = async () => {
@@ -201,7 +203,7 @@ const NuevaInstalacionFallidaScreen = () => {
 
   // Manejar entrada por voz
   const handleVoiceInput = (field, label) => {
-    console.log('🎤 Abriendo modal de voz para campo:', field, 'con label:', label);
+    console.log('Abriendo modal de voz para campo:', field, 'con label:', label);
     setCurrentVoiceField(field);
     setCurrentVoiceFieldLabel(label);
     setShowVoiceInput(true);
@@ -209,7 +211,7 @@ const NuevaInstalacionFallidaScreen = () => {
 
   // Manejar resultado de voz
   const handleVoiceResult = (text) => {
-    console.log('🎤 Texto de voz recibido:', text, 'para campo:', currentVoiceField);
+    console.log('Texto de voz recibido:', text, 'para campo:', currentVoiceField);
 
     // Actualizar el campo correspondiente según el nombre del campo
     switch (currentVoiceField) {
@@ -413,6 +415,23 @@ const NuevaInstalacionFallidaScreen = () => {
     try {
       setLoading(true);
 
+      const resultados = await searchNeverasByCodigo2(codigoNevera);
+      console.log("Resultados de búsqueda:", resultados);
+
+      if (!resultados || resultados.length > 1) {
+        Toast.show({
+          type: "error",
+          text1: "Error",
+          text2: "El código ingresado no existe.",
+          position: "bottom",
+          visibilityTime: 4000,
+        });
+
+        setCodigoNevera("");
+        setLoading(false);
+        return;
+      }
+
       const fechaHoy = new Date().toISOString().slice(0, 10);
 
       const validacion = await validarActaFallidaPorDia(codigoNevera, fechaHoy);
@@ -421,7 +440,7 @@ const NuevaInstalacionFallidaScreen = () => {
       if (validacion.status === 0) {
         Toast.show({
           type: "error",
-          text1: "Aviso",
+          text1: "Error",
           text2: validacion.msg || "Ya tiene registrada una instalación fallida hoy.",
           position: "bottom",
           visibilityTime: 4000,
@@ -662,7 +681,7 @@ const NuevaInstalacionFallidaScreen = () => {
 
       <View style={styles.section}>
         <Text style={styles.label}>Código de Nevera</Text>
-        <AutocompleteNevera
+        <AutocompleteNeveraInput
           value={codigoNevera}
           onChangeText={setCodigoNevera}
           onBarcodeScan={handleBarcodeScan}

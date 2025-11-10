@@ -67,7 +67,7 @@ const MapaScreen = () => {
             }
             stopGPSMonitoring();
         };
-    }, [checkGPSStatus, startGPSMonitoring, stopGPSMonitoring]);
+    }, []);
 
     const handleRetryGPS = async () => {
         setIsCheckingGPS(true);
@@ -202,7 +202,6 @@ const MapaScreen = () => {
                         color: item.color || "red",
                     }));
 
-                    console.log("📍 Markers formateados:", formatted);
 
                     setMarkers(formatted);
                 } else {
@@ -214,7 +213,7 @@ const MapaScreen = () => {
                     });
                 }
             } catch (error) {
-                console.error("❌ Error mapa:", error);
+                console.error("Error mapa:", error);
                 Toast.show({
                     type: "error",
                     text1: "Error al cargar mapa",
