@@ -1,61 +1,47 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   TextInput,
   Text,
   TouchableOpacity,
   FlatList,
+  StyleSheet,
   ActivityIndicator,
   Keyboard,
-  StyleSheet,
-} from "react-native";
-import Icon from "react-native-vector-icons/MaterialIcons";
-import Toast from "react-native-toast-message";
-import { searchNeverasByCodigo2 } from "../services/neveraService";
+} from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import { searchNeverasByCodigo } from '../services/neveraService';
 
-const AutocompleteNevera = ({
-  value,
-  onChangeText,
+/**
+ * Componente de autocompletado para código de nevera
+ * Muestra sugerencias cuando el texto tiene >= 4 caracteres
+ */
+const AutocompleteNevera = ({ 
+  value, 
+  onChangeText, 
   onSelectNevera,
   onBarcodeScan,
   onVoiceInput,
-  editable = true,
+  editable = true
 }) => {
   const [suggestions, setSuggestions] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
   const debounceTimer = useRef(null);
 
+  // Buscar sugerencias cuando el texto cambia
   useEffect(() => {
     const searchSuggestions = async () => {
-      if (value.length >= 4) {
+      // Solo buscar si tiene 4 o más caracteres y menos de 10
+      if (value.length >= 4 && value.length < 10) {
         setLoading(true);
+        
         try {
-          const results = await searchNeverasByCodigo2(value);
-
-          if (results.length > 1) {
-            setSuggestions(results.slice(0, 10));
-            setShowDropdown(true);
-          } else if (results.length === 1) {
-            const nevera = results[0];
-            onChangeText(nevera.codigo);
-            setShowDropdown(false);
-            setSuggestions([]);
-            Keyboard.dismiss();
-
-            if (onSelectNevera) onSelectNevera(nevera);
-          } else {
-            setSuggestions([]);
-            setShowDropdown(false);
-          }
+          const results = await searchNeverasByCodigo(value);
+          setSuggestions(results);
+          setShowDropdown(results.length > 0);
         } catch (error) {
-          Toast.show({
-            type: "error",
-            text1: "Error",
-            text2: error.message || "Error al buscar la nevera",
-            position: "bottom",
-          });
-
+          console.error('Error buscando sugerencias:', error);
           setSuggestions([]);
           setShowDropdown(false);
         } finally {
@@ -67,36 +53,48 @@ const AutocompleteNevera = ({
       }
     };
 
-    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    // Debounce para evitar muchas peticiones
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+
     debounceTimer.current = setTimeout(searchSuggestions, 500);
 
     return () => {
-      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
     };
   }, [value]);
 
+  // Manejar selección de sugerencia
   const handleSelectSuggestion = (item) => {
     onChangeText(item.codigo);
     setShowDropdown(false);
     setSuggestions([]);
     Keyboard.dismiss();
-
-    if (onSelectNevera) onSelectNevera(item);
+    
+    // Notificar al componente padre
+    if (onSelectNevera) {
+      onSelectNevera(item);
+    }
   };
 
+  // Renderizar item de sugerencia
+  const renderSuggestionItem = ({ item }) => (
+    <TouchableOpacity
+      style={styles.suggestionItem}
+      onPress={() => handleSelectSuggestion(item)}
+    >
+      <Text style={styles.suggestionCode}>{item.codigo}</Text>
+      <Icon name="chevron-right" size={20} color="#999" />
+    </TouchableOpacity>
+  );
+
   return (
-    <View>
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          borderWidth: 1,
-          borderColor: "#ccc",
-          borderRadius: 8,
-          paddingHorizontal: 10,
-          height: 45,
-        }}
-      >
+    <View style={styles.container}>
+      {/* Input con iconos */}
+      <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
           value={value}
@@ -106,56 +104,64 @@ const AutocompleteNevera = ({
           editable={editable}
           autoCapitalize="characters"
         />
-
-        {loading && <ActivityIndicator size="small" color="#3F51B5" />}
-        <TouchableOpacity onPress={onVoiceInput}>
-          <Icon name="mic" size={22} color="#3F51B5" />
+        
+        {/* Indicador de carga */}
+        {loading && (
+          <ActivityIndicator 
+            size="small" 
+            color="#3F51B5" 
+            style={styles.loadingIndicator}
+          />
+        )}
+        
+        {/* Botón de voz */}
+        <TouchableOpacity
+          style={styles.iconButton}
+          onPress={onVoiceInput}
+        >
+          <Icon name="mic" size={24} color="#3F51B5" />
         </TouchableOpacity>
-        <TouchableOpacity onPress={onBarcodeScan}>
-          <Icon name="qr-code-scanner" size={22} color="#3F51B5" />
+        
+        {/* Botón de escáner */}
+        <TouchableOpacity
+          style={styles.iconButton}
+          onPress={onBarcodeScan}
+        >
+          <Icon name="qr-code-scanner" size={24} color="#3F51B5" />
         </TouchableOpacity>
       </View>
 
+      {/* Dropdown de sugerencias */}
       {showDropdown && suggestions.length > 0 && (
         <View style={styles.dropdownContainer}>
           <View style={styles.dropdownHeader}>
             <Text style={styles.dropdownTitle}>
               {suggestions.length} nevera{suggestions.length !== 1 ? 's' : ''} encontrada{suggestions.length !== 1 ? 's' : ''}
             </Text>
-            {/* <TouchableOpacity
+            <TouchableOpacity
               onPress={() => setShowDropdown(false)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <Icon name="close" size={20} color="#666" />
-            </TouchableOpacity> */}
+            </TouchableOpacity>
           </View>
+          
           <FlatList
             data={suggestions}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={{
-                  paddingVertical: 8,
-                  paddingHorizontal: 12,
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                }}
-                onPress={() => handleSelectSuggestion(item)}
-              >
-                <Text>{item.codigo}</Text>
-                <Icon name="chevron-right" size={18} color="#999" />
-              </TouchableOpacity>
-            )}
-            keyExtractor={(item, index) => index.toString()}
+            renderItem={renderSuggestionItem}
+            keyExtractor={(item) => item.id.toString()}
+            style={styles.suggestionsList}
+            keyboardShouldPersistTaps="handled"
           />
         </View>
       )}
-      <Toast />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    marginBottom: 16,
     zIndex: 1000,
   },
   inputContainer: {
