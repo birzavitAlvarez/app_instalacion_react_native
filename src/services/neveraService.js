@@ -8,7 +8,7 @@ export const searchNeverasByCodigo = async (code) => {
     const response = await axios.post(
       `${BASE_URL}/search/cod-nevera/${code}/${TOKEN}/`
     );
-    
+
     console.log('Neveras encontradas:', response.data);
     return response.data || [];
   } catch (error) {
@@ -28,13 +28,13 @@ export const getDataByCodNevera = async (codNevera) => {
         }
       }
     );
-    
+
     console.log('Datos de nevera obtenidos:', response.data);
-    
+
     if (response.data.status && response.data.data) {
       return response.data.data;
     }
-    
+
     throw new Error(response.data.message || 'No se encontraron datos');
   } catch (error) {
     // Solo mostrar el error en consola si NO es un error 400
@@ -55,7 +55,7 @@ export const searchImeiByCode = async (code) => {
     const response = await axios.post(
       `${BASE_URL}/search/imei/${code}/${TOKEN}/`
     );
-    
+
     console.log('IMEIs encontrados:', response.data);
     return response.data || [];
   } catch (error) {
@@ -73,21 +73,21 @@ export const getDataByImei = async (imei) => {
     const response = await axios.post(
       `${BASE_URL}/search/imei/${imei}/${TOKEN}/`
     );
-    
+
     console.log('Datos de IMEI obtenidos:', response.data);
-    
+
     // La API devuelve un array, buscamos el que coincida exactamente
     if (Array.isArray(response.data) && response.data.length > 0) {
       const exactMatch = response.data.find(item => item.imei === imei);
-      
+
       if (exactMatch) {
         return exactMatch;
       }
-      
+
       // Si no hay coincidencia exacta pero hay resultados, devolver el primero
       return response.data[0];
     }
-    
+
     // Si la respuesta está vacía o no es válida, devolver null
     return null;
   } catch (error) {
@@ -110,7 +110,7 @@ export const validateNeveraStatus = async (codigoNevera) => {
         }
       }
     );
-    
+
     console.log('Estado de nevera validado:', response.data);
     return response.data;
   } catch (error) {
@@ -152,7 +152,7 @@ export const validateTechnicianSync = async (fecha, latitud, longitud, imei, tip
         _tipo: tipo
       }
     );
-    
+
     console.log('Sincronización validada:', response.data);
     return response.data;
   } catch (error) {
@@ -173,6 +173,28 @@ export const validateTechnicianSync = async (fecha, latitud, longitud, imei, tip
     
     // Para otros errores, sí mostrar el log completo
     console.error('Error validando sincronización:', error);
+    throw error;
+  }
+};
+
+
+export const searchNeverasByCodigo2 = async (codigo) => {
+  try {
+    const response = await fetch(
+      `${BASE_URL}/search/cod-nevera2-fallidas?cod_nevera=${codigo}`
+    );
+    const data = await response.json();
+
+    if (data.status === 0) {
+      throw new Error(data.error || "Nevera no registrada");
+    }
+
+    if (Array.isArray(data)) return data;
+
+    if (data && typeof data === "object") return [data];
+
+    return [];
+  } catch (error) {
     throw error;
   }
 };
