@@ -58,20 +58,20 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+
       <PaperProvider theme={DefaultTheme}>
-        <AuthProvider>
-          <LocationProvider>
-            <NavigationContainer theme={NavigationDefaultTheme} ref={navigationRef}>
+        <NavigationContainer theme={NavigationDefaultTheme} ref={navigationRef}>
+          <AuthProvider>
+            <LocationProvider>
               <AppContent />
-            </NavigationContainer>
-          </LocationProvider>
-        </AuthProvider>
+            </LocationProvider>
+          </AuthProvider>
+        </NavigationContainer>
       </PaperProvider>
       <Toast config={toastConfig} />
     </SafeAreaProvider>
   );
 }
-
 
 function AppContent() {
   const safeAreaInsets = useSafeAreaInsets();
@@ -86,7 +86,7 @@ function AppContent() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#fff', 
   },
   crashButtonContainer: {
     position: 'absolute',

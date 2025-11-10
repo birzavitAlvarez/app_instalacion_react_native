@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useState, useEffect, useCallback } from 'react';
 import Geolocation from '@react-native-community/geolocation';
 import { PermissionsAndroid, Platform, AppState } from 'react-native';
 
@@ -12,15 +12,14 @@ export const LocationProvider = ({ children }) => {
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [permissionChecked, setPermissionChecked] = useState(false);
   const [isGPSEnabled, setIsGPSEnabled] = useState(true);
-  const gpsCheckIntervalRef = useRef(null);
-
+  const [gpsCheckInterval, setGpsCheckInterval] = useState(null);
 
   // Solicitar permisos de ubicación
   const requestPermission = useCallback(async () => {
     if (permissionChecked) {
       return permissionGranted;
     }
-
+    
     if (Platform.OS === 'android') {
       try {
         if (!PermissionsAndroid) {
@@ -29,24 +28,24 @@ export const LocationProvider = ({ children }) => {
           setPermissionGranted(false);
           return false;
         }
-
+        
         // Solicitar ambos permisos (FINE y COARSE)
         const granted = await PermissionsAndroid.requestMultiple([
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
           PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
         ]);
-
-        const hasPermission =
+        
+        const hasPermission = 
           granted['android.permission.ACCESS_FINE_LOCATION'] === PermissionsAndroid.RESULTS.GRANTED ||
           granted['android.permission.ACCESS_COARSE_LOCATION'] === PermissionsAndroid.RESULTS.GRANTED;
-
+        
         if (hasPermission) {
           console.log('Permiso de ubicación concedido');
         } else {
           console.log('Permiso de ubicación denegado');
           setError('Permiso de ubicación denegado');
         }
-
+        
         setPermissionChecked(true);
         setPermissionGranted(hasPermission);
         setIsLoading(false);
@@ -60,7 +59,7 @@ export const LocationProvider = ({ children }) => {
         return false;
       }
     }
-
+    
     setPermissionChecked(true);
     setPermissionGranted(true);
     return true;
@@ -76,13 +75,13 @@ export const LocationProvider = ({ children }) => {
     } else if (!permissionGranted) {
       throw new Error('Permiso de ubicación denegado');
     }
-
+    
     setIsLoading(true);
-
+    
     // Primero intentar con baja precisión (más rápido)
     return new Promise((resolve, reject) => {
       let resolved = false;
-
+      
       // Intento 1: Baja precisión, timeout corto
       Geolocation.getCurrentPosition(
         (position) => {
@@ -102,12 +101,12 @@ export const LocationProvider = ({ children }) => {
         },
         (err) => {
           console.log('Intento con baja precisión falló, intentando alta precisión...', err);
-
+          
           // Verificar si el error es por GPS desactivado
           if (err.code === 2) {
             setIsGPSEnabled(false);
           }
-
+          
           // Intento 2: Alta precisión, timeout más largo
           Geolocation.getCurrentPosition(
             (position) => {
@@ -129,7 +128,7 @@ export const LocationProvider = ({ children }) => {
               if (!resolved) {
                 resolved = true;
                 console.error('Error obteniendo ubicación:', err2);
-
+                
                 // Verificar si el error es por GPS desactivado
                 if (err2.code === 2) {
                   setIsGPSEnabled(false);
@@ -137,13 +136,13 @@ export const LocationProvider = ({ children }) => {
                 } else {
                   setError(err2.message);
                 }
-
+                
                 setIsLoading(false);
                 reject(err2);
               }
             },
-            {
-              enableHighAccuracy: true,
+            { 
+              enableHighAccuracy: true, 
               timeout: 30000,
               maximumAge: 10000,
               distanceFilter: 0,
@@ -152,8 +151,8 @@ export const LocationProvider = ({ children }) => {
             }
           );
         },
-        {
-          enableHighAccuracy: false,
+        { 
+          enableHighAccuracy: false, 
           timeout: 10000,
           maximumAge: 60000,
         }
@@ -168,8 +167,8 @@ export const LocationProvider = ({ children }) => {
         Geolocation.getCurrentPosition(
           resolve,
           reject,
-          {
-            enableHighAccuracy: true,
+          { 
+            enableHighAccuracy: true, 
             timeout: 5000,
             maximumAge: 0,
           }
@@ -190,23 +189,30 @@ export const LocationProvider = ({ children }) => {
 
   // Iniciar monitoreo continuo del GPS
   const startGPSMonitoring = useCallback((callback) => {
-    if (gpsCheckIntervalRef.current) {
-      clearInterval(gpsCheckIntervalRef.current);
+    // Limpiar intervalo anterior si existe
+    if (gpsCheckInterval) {
+      clearInterval(gpsCheckInterval);
     }
 
-    gpsCheckIntervalRef.current = setInterval(async () => {
+    // Verificar GPS cada 5 segundos
+    const interval = setInterval(async () => {
       const isEnabled = await checkGPSStatus();
-      if (callback) callback(isEnabled);
+      if (callback) {
+        callback(isEnabled);
+      }
     }, 5000);
-  }, [checkGPSStatus]);
 
+    setGpsCheckInterval(interval);
+    return interval;
+  }, [checkGPSStatus, gpsCheckInterval]);
+
+  // Detener monitoreo del GPS
   const stopGPSMonitoring = useCallback(() => {
-    if (gpsCheckIntervalRef.current) {
-      clearInterval(gpsCheckIntervalRef.current);
-      gpsCheckIntervalRef.current = null;
+    if (gpsCheckInterval) {
+      clearInterval(gpsCheckInterval);
+      setGpsCheckInterval(null);
     }
-  }, []);
-
+  }, [gpsCheckInterval]);
 
   // Iniciar tracking de ubicación
   const startTracking = useCallback(() => {
