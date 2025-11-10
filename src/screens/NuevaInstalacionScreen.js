@@ -80,7 +80,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
   const [formDataStep2, setFormDataStep2] = useState({
     // Lugar de Instalación (nuevo)
     lugarInstalacion: '',
-    
+
     // Inspección Previa
     neveraEnergizadaPrev: false,
     compresorEnciendePrev: false,
@@ -88,13 +88,13 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     cableadoBuenasCondPrev: false,
     comentario: '',
     fotoInspeccionPrevia: null,
-    
+
     // Fotos de instalación
     fotoCajaMetalicaAbierta: null,
     fotoEmpalmeCable: null,
     fotoCajaMetalicaCerrada: null,
     fotoFachadaNevera: null,
-    
+
     // Reinspección Posterior
     neveraEnergizadaPost: false,
     compresorPost: false,
@@ -151,7 +151,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     iccidChip: '',
     imeiDispositivo: '',
     otro: '',
-    
+
     // Inspección previa
     iprevNeveraEnergizada: 'NO',
     iprevCompresorEnciende: 'NO',
@@ -160,11 +160,11 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     iprevComentario: '',
     iprevFoto: '',
     iprevFotoPath: '',
-    
+
     // Coordenadas
     latitud: '',
     longitud: '',
-    
+
     // Fotos de instalación
     fotoDispInstaCajaMetalicaAbierta: '',
     fotoDispInstaCajaMetalicaAbiertaPath: '',
@@ -174,20 +174,20 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     fotoDispInstaCajaMetalicaCerradaPath: '',
     fotoFachadaNevera: '',
     fotoFachadeNeveraPath: '',
-    
+
     // Datos de validación
     transmisionRedCelular: "SI",
     alertaDesconexion: "SI",
     alertaReconexion: "SI",
     transmisionGps: "SI",
-    
+
     // Inspección posterior
     cierreRejilla: 'NO',
     ipostNeveraEnergizada: 'NO',
     ipostCompresorEnciende: 'NO',
     ipostTermostatoOp: 'NO',
     ipostEstaCableElec: 'NO',
-    
+
     // Observaciones
     observacion1: '',
     fotoObservacion1: '',
@@ -195,13 +195,13 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     observacion2: '',
     fotoObservacion2: '',
     fotoObservacion2Path: '',
-    
+
     // Firma del técnico (Step 4)
     tecnicoFirma: null,
     tecnicoFirmaPath: null,
     tecnicoNombreApellido: null,
     tecnicoDni: null,
-    
+
     // Firma del cliente
     clienteRespFirma: '',
     clienteRespFirmaPath: '',
@@ -317,7 +317,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
   useEffect(() => {
     // Agregar una bandera para controlar si ya se consultó este código
     const codigoNevera = formDataStep1.codigoNevera.trim();
-    
+
     // Solo consultar si tiene EXACTAMENTE 10 o más caracteres, no está vacío y no se ha consultado antes
     if (codigoNevera.length >= 10) {
       // Verificar si ya consultamos este código antes
@@ -325,18 +325,18 @@ const NuevaInstalacionScreen = ({ navigation }) => {
         console.log('Este código ya fue consultado anteriormente, no se volverá a consultar');
         return;
       }
-      
+
       setLoading(true);
-      
+
       try {
         console.log('🔍 Consultando datos para código:', codigoNevera);
         const fetchNeveraData = async () => {
           const data = await getDataByCodNevera(codigoNevera);
-          
+
           // Guardar el IMEI actual antes de actualizar
           const currentImei = formDataStep1.imei;
           const isManualImei = currentImei && currentImei !== 'sin imei' && currentImei.length > 0;
-          
+
           // Autocompletar campos solo si vienen datos
           setFormDataStep1(prev => ({
             ...prev,
@@ -351,13 +351,13 @@ const NuevaInstalacionScreen = ({ navigation }) => {
             // Preservar el IMEI si ya fue ingresado manualmente
             imei: isManualImei ? currentImei : (data.imei_dispositivo || prev.imei),
           }));
-          
+
           // Marcar este código como ya consultado
           setInstalacionData(prev => ({
             ...prev,
             codigo: codigoNevera
           }));
-          
+
           Toast.show({
             type: 'success',
             text1: 'Datos autocompletados',
@@ -365,13 +365,13 @@ const NuevaInstalacionScreen = ({ navigation }) => {
             position: 'bottom',
             visibilityTime: 2000,
           });
-          
+
           console.log('Datos autocompletados:', data);
         };
-        
+
         // Ejecutar la consulta
         fetchNeveraData();
-        
+
       } catch (error) {
         console.error('Error obteniendo datos de nevera:', error);
         // Silenciar error 400 (código no encontrado o incompleto)
@@ -394,7 +394,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
 
     // Debounce para evitar consultas mientras escribe
     const timeoutId = setTimeout(() => {}, 800);
-    
+
     return () => clearTimeout(timeoutId);
   }, [formDataStep1.codigoNevera, formDataStep1.imei, instalacionData.codigo]);
 
@@ -416,11 +416,11 @@ const NuevaInstalacionScreen = ({ navigation }) => {
   // Manejar entrada por voz
   const handleVoiceInput = (fieldName, fieldLabel = '') => {
     console.log('Iniciando entrada por voz para:', fieldName, fieldLabel);
-    
+
     // Determinar el paso actual para actualizar el formData correcto
     let voiceField = fieldName;
     let voiceLabel = fieldLabel || fieldName;
-    
+
     // Para paso 1 (DatosGenerales)
     if (currentStep === 1) {
       setCurrentVoiceField(fieldName);
@@ -446,7 +446,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     console.log('Texto de voz recibido:', text);
     console.log('Campo destino:', currentVoiceField);
     console.log('Paso actual:', currentStep);
-    
+
     // Actualizar el formData según el paso actual
     if (currentStep === 1 && currentVoiceField) {
       setFormDataStep1({ ...formDataStep1, [currentVoiceField]: text });
@@ -458,7 +458,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
       setFormDataStep4({ ...formDataStep4, [currentVoiceField]: text });
       console.log('FormDataStep4 actualizado con voz');
     }
-    
+
     // Mostrar toast de confirmación
     Toast.show({
       type: 'success',
@@ -467,7 +467,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
       position: 'bottom',
       visibilityTime: 2000,
     });
-    
+
     // Resetear estados
     setCurrentVoiceField(null);
     setCurrentVoiceFieldLabel('');
@@ -478,22 +478,22 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     if (signatureData && signatureData.uri) {
       try {
         setLoading(true);
-        
+
         // Subir firma al servidor
         console.log('📤 Subiendo firma del cliente al servidor...');
         const filename = await uploadImageToServer(signatureData.uri, instalacionData.codigo);
         console.log('✅ Firma subida:', filename);
-        
+
         // Construir URL de previsualización
         const previewUrl = `https://phuyu-iot.com/NESTLE-API-TECNICOS/public/${filename}`;
-        
+
         // Guardar URL de previsualización y filename
-        setFormDataStep4({ 
-          ...formDataStep4, 
+        setFormDataStep4({
+          ...formDataStep4,
           fotoFirma: previewUrl,
           fotoFirmaFileName: filename
         });
-        
+
         Toast.show({
           type: 'success',
           text1: 'Firma guardada y subida',
@@ -526,13 +526,13 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     console.log('Código recibido:', code);
     console.log('Campo actual:', currentScanField);
     console.log('FormData antes:', formDataStep1);
-    
+
     setFormDataStep1({ ...formDataStep1, [currentScanField]: code });
     setShowBarcodeScanner(false);
     setCurrentScanField(null);
-    
+
     console.log('FormData actualizado');
-    
+
     Toast.show({
       type: 'success',
       text1: 'Código Escaneado',
@@ -569,7 +569,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
   // Tomar foto desde cámara
   const handleTakeFromCamera = async () => {
     setShowImageSourceModal(false);
-    
+
     const hasPermission = await requestCameraPermission();
     if (!hasPermission) return;
 
@@ -581,27 +581,27 @@ const NuevaInstalacionScreen = ({ navigation }) => {
         console.log('📤 Subiendo imagen al servidor...');
         const filename = await uploadImageToServer(result.uri, instalacionData.codigo);
         console.log('✅ Imagen subida:', filename);
-        
+
         // Construir URL de previsualización
         const previewUrl = `https://phuyu-iot.com/NESTLE-API-TECNICOS/public/${filename}`;
-        
+
         // Guardar tanto la URL de previsualización como el filename
         if (currentStep === 2) {
           const stateKey = mapStep2PhotoKey(currentPhotoField);
-          setFormDataStep2({ 
-            ...formDataStep2, 
+          setFormDataStep2({
+            ...formDataStep2,
             [stateKey]: previewUrl,
             [`${stateKey}FileName`]: filename
           });
         } else if (currentStep === 3) {
           const stateKey = currentPhotoField; // Ya viene como 'fotoObservacion1|2'
-          setFormDataStep3({ 
-            ...formDataStep3, 
+          setFormDataStep3({
+            ...formDataStep3,
             [stateKey]: previewUrl,
             [`${stateKey}FileName`]: filename
           });
         }
-        
+
         Toast.show({
           type: 'success',
           text1: 'Foto capturada y subida',
@@ -626,7 +626,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
   // Seleccionar foto desde galería
   const handlePickFromGallery = async () => {
     setShowImageSourceModal(false);
-    
+
     const hasPermission = await requestGalleryPermission();
     if (!hasPermission) return;
 
@@ -638,27 +638,27 @@ const NuevaInstalacionScreen = ({ navigation }) => {
         console.log('📤 Subiendo imagen al servidor...');
         const filename = await uploadImageToServer(result.uri, instalacionData.codigo);
         console.log('✅ Imagen subida:', filename);
-        
+
         // Construir URL de previsualización
         const previewUrl = `https://phuyu-iot.com/NESTLE-API-TECNICOS/public/${filename}`;
-        
+
         // Guardar tanto la URL de previsualización como el filename
         if (currentStep === 2) {
           const stateKey = mapStep2PhotoKey(currentPhotoField);
-          setFormDataStep2({ 
-            ...formDataStep2, 
+          setFormDataStep2({
+            ...formDataStep2,
             [stateKey]: previewUrl,
             [`${stateKey}FileName`]: filename
           });
         } else if (currentStep === 3) {
           const stateKey = currentPhotoField;
-          setFormDataStep3({ 
-            ...formDataStep3, 
+          setFormDataStep3({
+            ...formDataStep3,
             [stateKey]: previewUrl,
             [`${stateKey}FileName`]: filename
           });
         }
-        
+
         Toast.show({
           type: 'success',
           text1: 'Imagen seleccionada y subida',
@@ -683,14 +683,14 @@ const NuevaInstalacionScreen = ({ navigation }) => {
   // Manejar eliminación de fotos - Pasos 2 y 3
   const handleDeletePhoto = (fieldName) => {
     if (currentStep === 2) {
-      setFormDataStep2({ 
-        ...formDataStep2, 
+      setFormDataStep2({
+        ...formDataStep2,
         [fieldName]: null,
         [`${fieldName}FileName`]: null
       });
     } else if (currentStep === 3) {
-      setFormDataStep3({ 
-        ...formDataStep3, 
+      setFormDataStep3({
+        ...formDataStep3,
         [fieldName]: null,
         [`${fieldName}FileName`]: null
       });
@@ -737,7 +737,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
       // Paso 1: Validar estado de la nevera
       console.log('Validando estado de nevera:', formDataStep1.codigoNevera);
       const statusResponse = await validateNeveraStatus(formDataStep1.codigoNevera);
-      
+
       if (statusResponse.status !== 1) {
         setLoading(false);
         Toast.show({
@@ -755,7 +755,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
       // Paso 2: Obtener ubicación y validar sincronización
       const currentLocation = await getCurrentLocation();
       const currentDateTime = formatDateTime(new Date());
-      
+
       console.log('Validando sincronización con:', {
         fecha: currentDateTime,
         latitud: currentLocation.latitude,
@@ -818,7 +818,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     } catch (error) {
       setLoading(false);
       console.error('Error en validación:', error);
-      
+
       Toast.show({
         type: 'error',
         text1: 'Error de validación',
@@ -860,14 +860,14 @@ const NuevaInstalacionScreen = ({ navigation }) => {
       });
       return;
     }
-    
+
     setLoading(true);
 
     try {
       // Paso 1: Validar estado de la nevera
       console.log('Validando estado de nevera (Paso 2):', formDataStep1.codigoNevera);
       const statusResponse = await validateNeveraStatus(formDataStep1.codigoNevera);
-      
+
       if (statusResponse.status !== 1) {
         setLoading(false);
         Toast.show({
@@ -962,7 +962,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     } catch (error) {
       setLoading(false);
       console.error('Error en validación (Paso 2):', error);
-      
+
       Toast.show({
         type: 'error',
         text1: 'Error de validación',
@@ -976,7 +976,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
   // Avanzar paso 3 → Paso 4 (sin validación, solo avanza)
   const handleNextStep3 = () => {
     console.log('Guardando datos del Paso 3 (Observaciones)');
-    
+
     // Actualizar instalacionData con los datos del Paso 3
     setInstalacionData(prev => ({
       ...prev,
@@ -985,7 +985,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
       observacion2: formDataStep3.observacion2,
       fotoObservacion2Path: formDataStep3.fotoObservacion2,
     }));
-    
+
     console.log('Datos del Paso 3 guardados, avanzando al Paso 4 (Firma Cliente)');
     Toast.show({
       type: 'success',
@@ -994,7 +994,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
       position: 'bottom',
       visibilityTime: 1500,
     });
-    
+
     setCurrentStep(4);
   };
 
@@ -1066,8 +1066,8 @@ const NuevaInstalacionScreen = ({ navigation }) => {
         createdAt,
       };
       setInstalacionData(updatedInstalacionData);
-  // Log del body que se enviará
-  console.log(JSON.stringify(updatedInstalacionData, null, 2));
+      // Log del body que se enviará
+      console.log(JSON.stringify(updatedInstalacionData, null, 2));
       // Enviar POST al endpoint real
       const response = await postInstalacionNevera(updatedInstalacionData);
       // Log de la respuesta completa
@@ -1120,24 +1120,24 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     // Cerrar el modal de confirmación
     setShowConfirmationModal(false);
     setLoading(true);
-    
+
     try {
       // Obtener fecha y hora actual
       const now = new Date();
       const fecha = now.toISOString().split('T')[0]; // YYYY-MM-DD
       const hora = now.toTimeString().split(' ')[0]; // HH:MM:SS
-      
+
       // Construir observación concatenada: "lugarInstalacion // observacion1 // observacion2"
       let observacionConcatenada = formDataStep2.lugarInstalacion;
-      
+
       if (formDataStep3.observacion1 && formDataStep3.observacion1.trim() !== '') {
         observacionConcatenada += ' // ' + formDataStep3.observacion1.trim();
       }
-      
+
       if (formDataStep3.observacion2 && formDataStep3.observacion2.trim() !== '') {
         observacionConcatenada += ' // ' + formDataStep3.observacion2.trim();
       }
-      
+
       // Preparar datos para el endpoint de actualización
       const updateData = {
         cod_nevera: formDataStep1.codigoNevera,
@@ -1150,14 +1150,14 @@ const NuevaInstalacionScreen = ({ navigation }) => {
         motivos: "",
         observacion: observacionConcatenada
       };
-      
+
       console.log('Enviando datos de actualización:', updateData);
-      
+
       // Realizar la solicitud POST
       const response = await updateGestionAndProduction(updateData);
-      
+
       console.log('Respuesta de actualización:', response);
-      
+
       // Verificar si la respuesta tiene status 0 (error)
       if (response.status === 0) {
         Toast.show({
@@ -1172,7 +1172,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
         setLoading(false);
         return; // Detener el proceso aquí
       }
-      
+
       // Mostrar mensaje de éxito
       if (response.status === 1) {
         Toast.show({
@@ -1183,7 +1183,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
           visibilityTime: 3000,
           topOffset: 30,
         });
-        
+
         // Navegar a la pantalla de éxito
         navigation.replace('SuccessScreen');
       }
@@ -1209,7 +1209,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
         // Guardar el IMEI actual antes de actualizar
         const currentImei = formDataStep1.imei;
         const isManualImei = currentImei && currentImei !== 'sin imei' && currentImei.length > 0;
-        
+
         // Actualizar instalacionData con los datos del Paso 1, pero NO tocar los campos de transmisión ni alerta
         setInstalacionData(prev => ({
           ...prev,
@@ -1279,8 +1279,8 @@ const NuevaInstalacionScreen = ({ navigation }) => {
   };
 
   return (
-    <ScrollView 
-      style={styles.container} 
+    <ScrollView
+      style={styles.container}
       contentContainerStyle={styles.contentContainer}
       keyboardShouldPersistTaps="handled"
       nestedScrollEnabled={true}
@@ -1294,10 +1294,10 @@ const NuevaInstalacionScreen = ({ navigation }) => {
         {currentStep === 4 && 'OBSERVACIONES'}
         {currentStep === 5 && 'VISTA PREVIA'}
       </Text>
-      
+
       {/* Línea decorativa */}
       <View style={[
-        styles.divider, 
+        styles.divider,
         currentStep === 2 && styles.dividerLong,
         (currentStep === 3 || currentStep === 4 || currentStep === 5) && styles.dividerExtraLong
       ]} />
@@ -1312,7 +1312,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
           onIccidUpdate={handleIccidUpdate}
         />
       )}
-      
+
       {currentStep === 2 && (
         <FuncionamientoEquipo
           formData={formDataStep2}
@@ -1322,7 +1322,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
           onBack={handleBack}
         />
       )}
-      
+
       {currentStep === 3 && (
         <Observaciones
           formData={formDataStep3}
@@ -1332,7 +1332,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
           onVoiceInput={handleVoiceInput}
         />
       )}
-      
+
       {currentStep === 4 && (
         <FirmaCliente
           formData={formDataStep4}
@@ -1352,25 +1352,25 @@ const NuevaInstalacionScreen = ({ navigation }) => {
       {/* Botones de Navegación */}
       <View style={styles.navigationContainer}>
         {(currentStep === 2 || currentStep === 3 || currentStep === 4 || currentStep === 5) && (
-          <TouchableOpacity 
-            style={styles.btnBack} 
+          <TouchableOpacity
+            style={styles.btnBack}
             onPress={handleBack}
             disabled={loading}
           >
             <Icon name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
         )}
-        
+
         <View style={styles.spacer} />
-        
-        <TouchableOpacity 
-          style={[styles.btnNext, (currentStep === 4 || currentStep === 5) && styles.btnWide]} 
+
+        <TouchableOpacity
+          style={[styles.btnNext, (currentStep === 4 || currentStep === 5) && styles.btnWide]}
           onPress={
-            currentStep === 1 ? handleNext : 
-            currentStep === 2 ? handleNextStep2 : 
-            currentStep === 3 ? handleNextStep3 :
-            currentStep === 4 ? handleGeneratePDF :
-            handleShowConfirmation
+            currentStep === 1 ? handleNext :
+              currentStep === 2 ? handleNextStep2 :
+                currentStep === 3 ? handleNextStep3 :
+                  currentStep === 4 ? handleGeneratePDF :
+                    handleShowConfirmation
           }
           disabled={loading || pdfLoading}
         >
@@ -1442,7 +1442,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
           setCurrentPhotoField(null);
         }}
       >
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.imageSourceOverlay}
           activeOpacity={1}
           onPress={() => {
@@ -1452,8 +1452,8 @@ const NuevaInstalacionScreen = ({ navigation }) => {
         >
           <View style={styles.imageSourceModal}>
             <Text style={styles.imageSourceTitle}>Seleccionar imagen</Text>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.imageSourceButton}
               onPress={handleTakeFromCamera}
               activeOpacity={0.7}
@@ -1462,7 +1462,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
               <Text style={styles.imageSourceButtonText}>Tomar Foto</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.imageSourceButton}
               onPress={handlePickFromGallery}
               activeOpacity={0.7}
@@ -1471,7 +1471,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
               <Text style={styles.imageSourceButtonText}>Galería</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.imageSourceButton, styles.cancelButton]}
               onPress={() => {
                 setShowImageSourceModal(false);
@@ -1485,13 +1485,14 @@ const NuevaInstalacionScreen = ({ navigation }) => {
           </View>
         </TouchableOpacity>
       </Modal>
-      
+
       {/* Modal de GPS Requerido */}
       <GPSRequiredModal
         visible={showGPSModal}
         onRetry={handleRetryGPS}
         isChecking={isCheckingGPS}
       />
+
     </ScrollView>
   );
 };
