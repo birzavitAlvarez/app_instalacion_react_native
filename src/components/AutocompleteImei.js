@@ -21,6 +21,7 @@ const AutocompleteImei = ({
   onBarcodeScan,
   onVoiceInput,
   onIccidUpdate,
+  onBlur,
   editable = true
 }) => {
   const [suggestions, setSuggestions] = useState([]);
@@ -59,69 +60,71 @@ const AutocompleteImei = ({
           setLoading(false);
         }
       } 
-      // Cuando tiene 10 o más caracteres, validar y obtener datos completos
-      else if (trimmedValue.length >= 10 && trimmedValue !== lastValidatedImei.current) {
-        setLoading(true);
-        setShowDropdown(false);
-        setSuggestions([]);
-        
-        try {
-          const data = await getDataByImei(trimmedValue);
-          lastValidatedImei.current = trimmedValue;
-          
-          // Si no tiene ICCID o está vacío, mostrar error
-          if (!data || !data.iccid || data.iccid === '' || data.iccid === '000') {
-            Toast.show({
-              type: 'error',
-              text1: 'IMEI no válido',
-              text2: `El IMEI ${trimmedValue}, inexistente o en uso, verifique si el código es correcto!`,
-              position: 'bottom',
-              visibilityTime: 4000,
-            });
-            
-            // Actualizar ICCID a 0000
-            if (onIccidUpdate) {
-              onIccidUpdate('0000');
-            }
-          } else {
-            // IMEI válido, actualizar ICCID con el valor recibido
-            Toast.show({
-              type: 'success',
-              text1: 'IMEI válido',
-              text2: `ICCID: ${data.iccid}`,
-              position: 'bottom',
-              visibilityTime: 2000,
-            });
-            
-            if (onIccidUpdate) {
-              onIccidUpdate(data.iccid);
-            }
-          }
-          
-          // Notificar al componente padre si tiene callback
-          if (onSelectImei) {
-            onSelectImei(data);
-          }
-        } catch (error) {
-          console.error('Error obteniendo datos de IMEI:', error);
-          lastValidatedImei.current = trimmedValue;
-          
-          Toast.show({
-            type: 'error',
-            text1: 'IMEI no válido',
-            text2: `El IMEI ${trimmedValue}, inexistente o en uso, verifique si el código es correcto!`,
-            position: 'bottom',
-            visibilityTime: 4000,
-          });
-          
-          // Actualizar ICCID a 0000
-          if (onIccidUpdate) {
-            onIccidUpdate('0000');
-          }
-        } finally {
-          setLoading(false);
-        }
-      } else {
+      // VALIDACIÓN AUTOMÁTICA DESACTIVADA - Solo se valida con onBlur
+      // Cuando tiene 10 o más caracteres, la validación ahora se hace solo al salir del campo (onBlur)
+      // else if (trimmedValue.length >= 10 && trimmedValue !== lastValidatedImei.current) {
+      //   setLoading(true);
+      //   setShowDropdown(false);
+      //   setSuggestions([]);
+      //   
+      //   try {
+      //     const data = await getDataByImei(trimmedValue);
+      //     lastValidatedImei.current = trimmedValue;
+      //     
+      //     // Si no tiene ICCID o está vacío, mostrar error
+      //     if (!data || !data.iccid || data.iccid === '' || data.iccid === '000') {
+      //       Toast.show({
+      //         type: 'error',
+      //         text1: 'IMEI no válido',
+      //         text2: `El IMEI ${trimmedValue}, inexistente o en uso, verifique si el código es correcto!`,
+      //         position: 'bottom',
+      //         visibilityTime: 4000,
+      //       });
+      //       
+      //       // Actualizar ICCID a 0000
+      //       if (onIccidUpdate) {
+      //         onIccidUpdate('0000');
+      //       }
+      //     } else {
+      //       // IMEI válido, actualizar ICCID con el valor recibido
+      //       Toast.show({
+      //         type: 'success',
+      //         text1: 'IMEI válido',
+      //         text2: `ICCID: ${data.iccid}`,
+      //         position: 'bottom',
+      //         visibilityTime: 2000,
+      //       });
+      //       
+      //       if (onIccidUpdate) {
+      //         onIccidUpdate(data.iccid);
+      //       }
+      //     }
+      //     
+      //     // Notificar al componente padre si tiene callback
+      //     if (onSelectImei) {
+      //       onSelectImei(data);
+      //     }
+      //   } catch (error) {
+      //     console.error('Error obteniendo datos de IMEI:', error);
+      //     lastValidatedImei.current = trimmedValue;
+      //     
+      //     Toast.show({
+      //       type: 'error',
+      //       text1: 'IMEI no válido',
+      //       text2: `El IMEI ${trimmedValue}, inexistente o en uso, verifique si el código es correcto!`,
+      //       position: 'bottom',
+      //       visibilityTime: 4000,
+      //     });
+      //     
+      //     // Actualizar ICCID a 0000
+      //     if (onIccidUpdate) {
+      //       onIccidUpdate('0000');
+      //     }
+      //   } finally {
+      //     setLoading(false);
+      //   }
+      // } 
+      else {
         setSuggestions([]);
         setShowDropdown(false);
       }
@@ -175,6 +178,10 @@ const AutocompleteImei = ({
           style={styles.input}
           value={value}
           onChangeText={onChangeText}
+          onBlur={() => {
+            setShowDropdown(false);
+            if (onBlur) onBlur();
+          }}
           placeholder="BUSCAR POR IMEI"
           placeholderTextColor="#999"
           editable={editable}

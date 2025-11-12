@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useRef } from 'react';
 import Geolocation from '@react-native-community/geolocation';
 import { PermissionsAndroid, Platform, AppState } from 'react-native';
 
@@ -12,7 +12,7 @@ export const LocationProvider = ({ children }) => {
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [permissionChecked, setPermissionChecked] = useState(false);
   const [isGPSEnabled, setIsGPSEnabled] = useState(true);
-  const [gpsCheckInterval, setGpsCheckInterval] = useState(null);
+  const gpsCheckIntervalRef = useRef(null);
 
   // Solicitar permisos de ubicación
   const requestPermission = useCallback(async () => {
@@ -190,8 +190,8 @@ export const LocationProvider = ({ children }) => {
   // Iniciar monitoreo continuo del GPS
   const startGPSMonitoring = useCallback((callback) => {
     // Limpiar intervalo anterior si existe
-    if (gpsCheckInterval) {
-      clearInterval(gpsCheckInterval);
+    if (gpsCheckIntervalRef.current) {
+      clearInterval(gpsCheckIntervalRef.current);
     }
 
     // Verificar GPS cada 5 segundos
@@ -202,17 +202,17 @@ export const LocationProvider = ({ children }) => {
       }
     }, 5000);
 
-    setGpsCheckInterval(interval);
+    gpsCheckIntervalRef.current = interval;
     return interval;
-  }, [checkGPSStatus, gpsCheckInterval]);
+  }, [checkGPSStatus]);
 
   // Detener monitoreo del GPS
   const stopGPSMonitoring = useCallback(() => {
-    if (gpsCheckInterval) {
-      clearInterval(gpsCheckInterval);
-      setGpsCheckInterval(null);
+    if (gpsCheckIntervalRef.current) {
+      clearInterval(gpsCheckIntervalRef.current);
+      gpsCheckIntervalRef.current = null;
     }
-  }, [gpsCheckInterval]);
+  }, []);
 
   // Iniciar tracking de ubicación
   const startTracking = useCallback(() => {

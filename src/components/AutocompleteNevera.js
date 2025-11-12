@@ -22,6 +22,7 @@ const AutocompleteNevera = ({
   onSelectNevera,
   onBarcodeScan,
   onVoiceInput,
+  onBlur,
   editable = true
 }) => {
   const [suggestions, setSuggestions] = useState([]);
@@ -99,6 +100,10 @@ const AutocompleteNevera = ({
           style={styles.input}
           value={value}
           onChangeText={onChangeText}
+          onBlur={() => {
+            setShowDropdown(false);
+            if (onBlur) onBlur();
+          }}
           placeholder="Código de nevera"
           placeholderTextColor="#999"
           editable={editable}

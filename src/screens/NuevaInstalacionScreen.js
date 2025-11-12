@@ -221,18 +221,17 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     return value ? 'SI' : 'NO';
   };
 
-  // Función helper para mostrar Toast de forma segura
-  const showToast = (config) => {
-    // Ocultar cualquier Toast anterior
-    Toast.hide();
-    
-    // Mostrar el nuevo Toast con un pequeño delay
-    setTimeout(() => {
-      Toast.show({
-        ...config,
-        autoHide: true, // Siempre auto-ocultar
-      });
-    }, 100);
+
+  const showToast = ({ type, text1, text2, visibilityTime = 4000 }) => {
+    Toast.show({
+      type,
+      text1,
+      text2,
+      position: 'bottom',
+      topOffset: 30,
+      visibilityTime,
+      autoHide: true,
+    });
   };
 
   // Manejar cambio de campo - Paso 1
@@ -265,11 +264,10 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     const monitoringInterval = startGPSMonitoring((isEnabled) => {
       if (!isEnabled) {
         setShowGPSModal(true);
-        Toast.show({
+        showToast({
           type: 'error',
           text1: 'GPS Desactivado',
           text2: 'Por favor, activa el GPS para continuar',
-          position: 'bottom',
           visibilityTime: 3000,
         });
       }
@@ -291,29 +289,26 @@ const NuevaInstalacionScreen = ({ navigation }) => {
       const isEnabled = await checkGPSStatus();
       if (isEnabled) {
         setShowGPSModal(false);
-        Toast.show({
+        showToast({
           type: 'success',
           text1: 'GPS Activado',
           text2: 'Ahora puedes continuar con la instalación',
-          position: 'bottom',
           visibilityTime: 2000,
         });
       } else {
-        Toast.show({
+        showToast({
           type: 'error',
           text1: 'GPS aún desactivado',
           text2: 'Por favor, activa el GPS en la configuración',
-          position: 'bottom',
           visibilityTime: 3000,
         });
       }
     } catch (error) {
       console.log('Error reintentando GPS:', error);
-      Toast.show({
+      showToast({
         type: 'error',
         text1: 'Error',
         text2: 'No se pudo verificar el estado del GPS',
-        position: 'bottom',
         visibilityTime: 3000,
       });
     } finally {
@@ -372,11 +367,10 @@ const NuevaInstalacionScreen = ({ navigation }) => {
             codigo: codigoNevera
           }));
 
-          Toast.show({
+          showToast({
             type: 'success',
             text1: 'Datos autocompletados',
             text2: `Nevera: ${codigoNevera}`,
-            position: 'bottom',
             visibilityTime: 2000,
           });
 
@@ -393,11 +387,10 @@ const NuevaInstalacionScreen = ({ navigation }) => {
           console.log('Código no encontrado o incompleto');
         } else {
           // Solo mostrar toast para otros errores
-          Toast.show({
+          showToast({
             type: 'error',
             text1: 'Error de conexión',
             text2: 'No se pudo consultar los datos',
-            position: 'bottom',
             visibilityTime: 2000,
           });
         }
@@ -461,6 +454,8 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     console.log('Campo destino:', currentVoiceField);
     console.log('Paso actual:', currentStep);
 
+    const voiceField = currentVoiceField;
+
     // Actualizar el formData según el paso actual
     if (currentStep === 1 && currentVoiceField) {
       setFormDataStep1({ ...formDataStep1, [currentVoiceField]: text });
@@ -474,17 +469,23 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     }
 
     // Mostrar toast de confirmación
-    Toast.show({
+    showToast({
       type: 'success',
       text1: 'Texto reconocido',
       text2: text,
-      position: 'bottom',
       visibilityTime: 2000,
     });
 
     // Resetear estados
     setCurrentVoiceField(null);
     setCurrentVoiceFieldLabel('');
+
+    // Validar automáticamente si es código de nevera en paso 1
+    if (currentStep === 1 && voiceField === 'codigoNevera' && text && text.length >= 10) {
+      setTimeout(() => {
+        handleValidateNeveraCode(text);
+      }, 500);
+    }
   };
 
   // Manejar cambio de firma - subir inmediatamente al servidor
@@ -508,19 +509,17 @@ const NuevaInstalacionScreen = ({ navigation }) => {
           fotoFirmaFileName: filename
         });
 
-        Toast.show({
+        showToast({
           type: 'success',
           text1: 'Firma guardada y subida',
           text2: 'Firma guardada en el servidor',
-          position: 'bottom',
         });
       } catch (error) {
         console.error('Error subiendo firma:', error);
-        Toast.show({
+        showToast({
           type: 'error',
           text1: 'Error',
           text2: error.message || 'No se pudo subir la firma',
-          position: 'bottom',
         });
       } finally {
         setLoading(false);
@@ -543,17 +542,25 @@ const NuevaInstalacionScreen = ({ navigation }) => {
 
     setFormDataStep1({ ...formDataStep1, [currentScanField]: code });
     setShowBarcodeScanner(false);
+    
+    const scannedField = currentScanField;
     setCurrentScanField(null);
 
     console.log('FormData actualizado');
 
-    Toast.show({
+    showToast({
       type: 'success',
       text1: 'Código Escaneado',
       text2: code,
-      position: 'bottom',
       visibilityTime: 2000,
     });
+
+    // Validar automáticamente si es código de nevera
+    if (scannedField === 'codigoNevera' && code && code.length >= 10) {
+      setTimeout(() => {
+        handleValidateNeveraCode(code);
+      }, 500);
+    }
   };
 
   // Manejar toma de fotos - Pasos 2 y 3
@@ -616,20 +623,18 @@ const NuevaInstalacionScreen = ({ navigation }) => {
           });
         }
 
-        Toast.show({
+        showToast({
           type: 'success',
           text1: 'Foto capturada y subida',
           text2: 'Imagen guardada en el servidor',
-          position: 'bottom',
         });
       }
     } catch (error) {
       console.error('Error en handleTakeFromCamera:', error);
-      Toast.show({
+      showToast({
         type: 'error',
         text1: 'Error',
         text2: error.message || 'No se pudo tomar la foto',
-        position: 'bottom',
       });
     } finally {
       setLoading(false);
@@ -673,20 +678,18 @@ const NuevaInstalacionScreen = ({ navigation }) => {
           });
         }
 
-        Toast.show({
+        showToast({
           type: 'success',
           text1: 'Imagen seleccionada y subida',
           text2: 'Imagen guardada en el servidor',
-          position: 'bottom',
         });
       }
     } catch (error) {
       console.error('Error en handlePickFromGallery:', error);
-      Toast.show({
+      showToast({
         type: 'error',
         text1: 'Error',
         text2: error.message || 'No se pudo seleccionar la imagen',
-        position: 'bottom',
       });
     } finally {
       setLoading(false);
@@ -709,12 +712,64 @@ const NuevaInstalacionScreen = ({ navigation }) => {
         [`${fieldName}FileName`]: null
       });
     }
-    Toast.show({
+    showToast({
       type: 'info',
       text1: 'Foto eliminada',
       text2: 'Puede tomar una nueva foto',
-      position: 'bottom',
     });
+  };
+
+  // Función helper para validar código de nevera (usada por escáner, voz y onBlur)
+  const handleValidateNeveraCode = async (codigo) => {
+    const codigoTrimmed = codigo?.trim();
+    
+    if (codigoTrimmed && codigoTrimmed.length >= 10) {
+      try {
+        console.log('🔍 Validando código de nevera:', codigoTrimmed);
+        const statusResponse = await validateNeveraStatus(codigoTrimmed);
+        
+        if (statusResponse.status === 1) {
+          showToast({
+            type: 'success',
+            text1: '✓ Nevera verificada',
+            text2: 'El código de nevera es válido',
+            visibilityTime: 3000,
+          });
+        } else {
+          showToast({
+            type: 'error',
+            text1: 'Nevera no disponible',
+            text2: statusResponse.msg || 'Este código de nevera no está disponible',
+            visibilityTime: 4000,
+          });
+        }
+      } catch (error) {
+        console.log('Error validando nevera:', error);
+        if (error.response?.status === 400 || error.status === 400 || error.isValidationError) {
+          showToast({
+            type: 'error',
+            text1: 'Nevera no disponible',
+            text2: error.message || 'Este código de nevera no está disponible para instalación',
+            visibilityTime: 4000,
+          });
+        }
+      }
+    }
+  };
+
+  // Validación dinámica cuando el usuario sale de un campo (onBlur)
+  const handleValidateField = async (fieldName) => {
+    const codigoNevera = formDataStep1.codigoNevera?.trim();
+
+    // Validar Código de Nevera
+    if (fieldName === 'codigoNevera' && codigoNevera && codigoNevera.length >= 10) {
+      await handleValidateNeveraCode(codigoNevera);
+    }
+
+    // VALIDACIÓN DE IMEI DESACTIVADA - Solo se valida al presionar el botón "Siguiente"
+    // if (fieldName === 'imei' && imei && imei !== 'sin imei' && imei.length >= 10) {
+    //   ... código de validación comentado ...
+    // }
   };
 
   // Validar y mostrar modal (Paso 1 → Paso 2)
@@ -722,11 +777,10 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     // Validar que el código de nevera no esté vacío
     const codigoNevera = formDataStep1.codigoNevera?.trim();
     if (!codigoNevera || codigoNevera === '') {
-      Toast.show({
+      showToast({
         type: 'error',
         text1: 'Código de nevera requerido',
         text2: 'Debes ingresar el código de nevera antes de continuar.',
-        position: 'bottom',
         visibilityTime: 3500,
       });
       return;
@@ -735,11 +789,10 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     // Validar que el IMEI no esté vacío y no sea "sin imei"
     const imei = formDataStep1.imei?.trim().toLowerCase();
     if (!imei || imei === '' || imei === 'sin imei') {
-      Toast.show({
+      showToast({
         type: 'error',
         text1: 'IMEI requerido',
         text2: 'Debes ingresar o escanear el IMEI del dispositivo antes de continuar.',
-        position: 'bottom',
         visibilityTime: 3500,
       });
       return;
@@ -754,11 +807,10 @@ const NuevaInstalacionScreen = ({ navigation }) => {
 
       if (statusResponse.status !== 1) {
         setLoading(false);
-        Toast.show({
+        showToast({
           type: 'error',
           text1: 'Error de validación',
           text2: statusResponse.msg || 'No se pudo validar el estado de la nevera',
-          position: 'bottom',
           visibilityTime: 3000,
         });
         return;
@@ -866,10 +918,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
         type: 'error',
         text1: errorTitle,
         text2: errorMessage,
-        position: 'bottom',
         visibilityTime: 5000,
-        topOffset: 30,
-        bottomOffset: 40,
       });
     }
   };
@@ -896,11 +945,10 @@ const NuevaInstalacionScreen = ({ navigation }) => {
   const handleNextStep2 = async () => {
     // Validar que se haya seleccionado un lugar de instalación
     if (!formDataStep2.lugarInstalacion) {
-      Toast.show({
+      showToast({
         type: 'error',
         text1: 'LUGAR DE INSTALACIÓN REQUERIDOestos campos',
         text2: 'Debe seleccionar un lugar de instalación',
-        position: 'bottom',
         visibilityTime: 3000,
       });
       return;
@@ -915,11 +963,10 @@ const NuevaInstalacionScreen = ({ navigation }) => {
 
       if (statusResponse.status !== 1) {
         setLoading(false);
-        Toast.show({
+        showToast({
           type: 'error',
           text1: 'Error de validación',
           text2: statusResponse.msg || 'No se pudo validar el estado de la nevera',
-          position: 'bottom',
           visibilityTime: 3000,
         });
         return;
@@ -929,11 +976,10 @@ const NuevaInstalacionScreen = ({ navigation }) => {
       const imei = formDataStep1.imei;
       if (!imei || imei.trim() === '' || imei === 'sin imei') {
         setLoading(false);
-        Toast.show({
+        showToast({
           type: 'error',
           text1: 'Falta el IMEI',
           text2: 'Debes ingresar o escanear el IMEI del dispositivo antes de continuar.',
-          position: 'bottom',
           visibilityTime: 3500,
         });
         return;
@@ -1013,10 +1059,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
         type: 'error',
         text1: 'Error de validación',
         text2: error.response?.data?.msg || error.message || 'No se pudo validar los datos',
-        position: 'bottom',
         visibilityTime: 5000,
-        topOffset: 30,
-        bottomOffset: 40,
       });
     }
   };
@@ -1035,11 +1078,10 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     }));
 
     console.log('Datos del Paso 3 guardados, avanzando al Paso 4 (Firma Cliente)');
-    Toast.show({
+    showToast({
       type: 'success',
       text1: 'Datos guardados',
       text2: 'Avanzando a firma del cliente',
-      position: 'bottom',
       visibilityTime: 1500,
     });
 
@@ -1131,27 +1173,24 @@ const NuevaInstalacionScreen = ({ navigation }) => {
           pdfPath: response.pdfPath
         }));
         setCurrentStep(5);
-        Toast.show({
+        showToast({
           type: 'success',
           text1: 'Vista previa generada',
           text2: 'Revise el documento antes de finalizar',
-          position: 'bottom',
         });
       } else {
-        Toast.show({
+        showToast({
           type: 'error',
           text1: 'Error',
           text2: 'No se recibió el PDF de la instalación',
-          position: 'bottom',
         });
       }
     } catch (error) {
       console.error('Error generando PDF:', error);
-      Toast.show({
+      showToast({
         type: 'error',
         text1: 'Error',
         text2: 'No se pudo generar la vista previa',
-        position: 'bottom',
       });
     } finally {
       setPdfLoading(false);
@@ -1208,14 +1247,11 @@ const NuevaInstalacionScreen = ({ navigation }) => {
 
       // Verificar si la respuesta tiene status 0 (error)
       if (response.status === 0) {
-        Toast.show({
+        showToast({
           type: 'error',
           text1: 'No se puede completar',
           text2: response.msg || 'La nevera ya fue instalada',
-          position: 'top',
           visibilityTime: 5000,
-          autoHide: true,
-          topOffset: 30,
         });
         setLoading(false);
         return; // Detener el proceso aquí
@@ -1223,13 +1259,11 @@ const NuevaInstalacionScreen = ({ navigation }) => {
 
       // Mostrar mensaje de éxito
       if (response.status === 1) {
-        Toast.show({
+        showToast({
           type: 'success',
           text1: 'Éxito',
           text2: response.msg || 'Instalación completada correctamente',
-          position: 'top',
           visibilityTime: 3000,
-          topOffset: 30,
         });
 
         // Navegar a la pantalla de éxito
@@ -1237,11 +1271,10 @@ const NuevaInstalacionScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error('Error finalizando instalación:', error);
-      Toast.show({
+      showToast({
         type: 'error',
         text1: 'Error',
         text2: error.response?.data?.msg || 'No se pudo completar la instalación',
-        position: 'bottom',
       });
     } finally {
       setLoading(false);
@@ -1277,11 +1310,10 @@ const NuevaInstalacionScreen = ({ navigation }) => {
           latitud: validationData.coordenadas?.split(',')[0]?.trim() || '',
           longitud: validationData.coordenadas?.split(',')[1]?.trim() || '',
         }));
-        Toast.show({
+        showToast({
           type: 'success',
           text1: 'Validación exitosa',
           text2: 'Datos sincronizados correctamente',
-          position: 'bottom',
         });
         setCurrentStep(2);
       } else if (currentStep === 2) {
@@ -1306,33 +1338,32 @@ const NuevaInstalacionScreen = ({ navigation }) => {
           ipostTermostatoOp: booleanToSiNo(formDataStep2.termostatoPost),
           ipostEstaCableElec: booleanToSiNo(formDataStep2.cableadoElectricoPost),
         }));
-        Toast.show({
+        showToast({
           type: 'success',
           text1: 'Validación exitosa',
           text2: 'Datos sincronizados correctamente',
-          position: 'bottom',
         });
         setCurrentStep(3);
       }
     } else {
       setShowValidationModal(false);
-      Toast.show({
+      showToast({
         type: 'info',
         text1: 'No sincronizado',
         text2: 'El equipo no está sincronizado. Verifica la conexión.',
-        position: 'bottom',
         visibilityTime: 3000,
       });
     }
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      keyboardShouldPersistTaps="handled"
-      nestedScrollEnabled={true}
-    >
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.contentContainer}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled={true}
+      >
       {/* Título Principal */}
       <Text style={styles.title}>INSTALACIÓN EQUIPO</Text>
       <Text style={styles.subtitle}>
@@ -1358,6 +1389,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
           onBarcodeScan={handleBarcodeScan}
           onVoiceInput={handleVoiceInput}
           onIccidUpdate={handleIccidUpdate}
+          onValidateField={handleValidateField}
         />
       )}
 
@@ -1540,10 +1572,11 @@ const NuevaInstalacionScreen = ({ navigation }) => {
         onRetry={handleRetryGPS}
         isChecking={isCheckingGPS}
       />
-
-      {/* Toast Messages */}
-      <Toast />
     </ScrollView>
+
+      {/* Toast Messages - Flotante fuera del ScrollView */}
+      <Toast />
+    </View>
   );
 };
 
@@ -1551,6 +1584,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  scrollView: {
+    flex: 1,
   },
   contentContainer: {
     padding: 16,
