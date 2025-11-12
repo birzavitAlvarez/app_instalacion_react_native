@@ -690,7 +690,6 @@ const NuevaInstalacionFallidaScreen = () => {
           />
         </View>
 
-        {/* Ubicación */}
         <View style={styles.section}>
           <View style={styles.ubicacionRow}>
             <TouchableOpacity

@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useContext } from "react";
+import React, { useEffect, useState, useContext, useMemo } from "react";
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Platform } from "react-native";
-import MapView, { Marker, Callout, PROVIDER_GOOGLE } from "react-native-maps";
+import { Marker, Callout, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView from "react-native-map-clustering";
 import Toast from "react-native-toast-message";
 import { GOOGLE_MAPS_API_KEY, DEFAULT_REGION } from "../config/maps";
 import { AuthContext } from "../context/AuthContext";
@@ -9,13 +10,7 @@ import { useLocation } from "../hooks/useLocation";
 import { BlurView } from "@react-native-community/blur";
 import GPSRequiredModal from "../components/GPSRequiredModal";
 import Icon from 'react-native-vector-icons/FontAwesome';
-import { SvgXml } from "react-native-svg";
 
-const svgNevera = `
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor">
-  <path fill-rule="evenodd" d="m11.54 22.351.07.04.028.016a.76.76 0 0 0 .723 0l.028-.015.071-.041a16.975 16.975 0 0 0 1.144-.742 19.58 19.58 0 0 0 2.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 0 0-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 0 0 2.682 2.282 16.975 16.975 0 0 0 1.145.742ZM12 13.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clip-rule="evenodd" />
-</svg>
-`;
 
 
 const MapaScreen = () => {
@@ -251,6 +246,60 @@ const MapaScreen = () => {
         );
     }
 
+    const memoizedMarkers = useMemo(() => {
+        return markers.map((marker) => (
+            <Marker
+                key={marker.id}
+                coordinate={{
+                    latitude: marker.latitude,
+                    longitude: marker.longitude,
+                }}
+            >
+                <View
+                    style={{
+                        backgroundColor: marker.color || "#3F51B5",
+                        width: 20,
+                        height: 20,
+                        borderRadius: 10,
+                        borderColor: "#fff",
+                        borderWidth: 2,
+                    }}
+                />
+
+                <Callout tooltip>
+                    <View style={styles.callout}>
+                        <Text style={styles.title}>{marker.title}</Text>
+                        <Text style={styles.text}>{marker.direccion}</Text>
+                        <Text style={styles.text}>Vendedor: {marker.vendedor}</Text>
+
+                        <Text style={[styles.text, { marginTop: 6, fontWeight: "bold" }]}>
+                            Neveras:
+                        </Text>
+                        {marker.neveras.map((n, i) => (
+                            <Text key={i} style={styles.text}>
+                                • {n}
+                            </Text>
+                        ))}
+
+                        {marker.desplazado && (
+                            <Text style={{ color: "orange", marginTop: 4, fontSize: 12 }}>
+                                Posición ajustada para evitar superposición
+                            </Text>
+                        )}
+
+                        <View
+                            style={{ position: "absolute", bottom: 0, right: 0, padding: 2 }}
+                        >
+                            <Text style={{ fontSize: 10, color: "#adadadff" }}>
+                                {marker.color}
+                            </Text>
+                        </View>
+                    </View>
+                </Callout>
+            </Marker>
+        ));
+    }, [markers]);
+
     return (
         <View style={styles.container}>
             <View style={styles.statusContainer}>
@@ -267,50 +316,12 @@ const MapaScreen = () => {
                 initialRegion={DEFAULT_REGION}
                 showsUserLocation
                 showsCompass
-                zoomEnabled={true}
-                zoomControlEnabled={true}
-                rotateEnabled={true}
-                pitchEnabled={true}
-                showsBuildings={true}
-                showsTraffic={false}
-                showsIndoors={true}
+                clusterColor="#3F51B5"
+                clusterRadius={90}
+                clusterInitialZoom={12}
+                clusterTextColor="#fff"
             >
-                {markers.map((marker) => (
-                    <Marker
-                        key={marker.id}
-                        coordinate={{
-                            latitude: marker.latitude,
-                            longitude: marker.longitude,
-                        }}
-                    >
-                        <SvgXml xml={svgNevera} color={marker.color || "#3F51B5"} stroke={"#ffff"} strokeWidth={0.5} width={36} height={36} />
-                        {/* <Icon name="map-marker" size={32} color={marker.color || "#3F51B5"}  /> */}
-                        <Callout tooltip>
-                            <View style={styles.callout}>
-                                <Text style={styles.title}>{marker.title}</Text>
-                                <Text style={styles.text}>{marker.direccion}</Text>
-                                <Text style={styles.text}>Vendedor: {marker.vendedor}</Text>
-                                <Text style={[styles.text, { marginTop: 6, fontWeight: "bold" }]}>
-                                    Neveras:
-                                </Text>
-                                {marker.neveras.map((n, i) => (
-                                    <Text key={i} style={styles.text}>
-                                        • {n}
-                                    </Text>
-                                ))}
-
-                                {marker.desplazado && (
-                                    <Text style={{ color: "orange", marginTop: 4, fontSize: 12 }}>
-                                        Posición ajustada para evitar superposición
-                                    </Text>
-                                )}
-                                <View style={{ position: "absolute", bottom: 0, right: 0, padding: 2 }}>
-                                    <Text style={{ fontSize: 10, color: "#adadadff" }}>{marker.color}</Text>
-                                </View>
-                            </View>
-                        </Callout>
-                    </Marker>
-                ))}
+                {memoizedMarkers}
             </MapView>
 
             {(loading || !latitude || !longitude) && (
