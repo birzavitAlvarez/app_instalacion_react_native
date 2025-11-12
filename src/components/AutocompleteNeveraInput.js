@@ -54,7 +54,7 @@ const AutocompleteNeveraInput = ({
               type: 'error',
               text1: 'Nevera no encontrada',
               text2: 'El código ingresado no existe en la base de datos',
-              position: 'top',
+              position: 'bottom',
               visibilityTime: 4000,
             });
           }
@@ -63,7 +63,7 @@ const AutocompleteNeveraInput = ({
             type: 'error',
             text1: 'Error',
             text2: error.message || 'Ocurrió un problema con la búsqueda',
-            position: 'top',
+            position: 'bottom',
             visibilityTime: 4000,
           });
           console.log(error.message)

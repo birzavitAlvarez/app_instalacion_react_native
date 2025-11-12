@@ -676,205 +676,207 @@ const NuevaInstalacionFallidaScreen = () => {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <Text style={styles.title}>INSTALACIÓN FALLIDA</Text>
+    <View style={styles.container}  >
+      <ScrollView contentContainerStyle={styles.contentContainer}>
+        <Text style={styles.title}>INSTALACIÓN FALLIDA</Text>
 
-      <View style={styles.section}>
-        <Text style={styles.label}>Código de Nevera</Text>
-        <AutocompleteNeveraInput
-          value={codigoNevera}
-          onChangeText={setCodigoNevera}
-          onBarcodeScan={handleBarcodeScan}
-          onVoiceInput={() => handleVoiceInput('codigoNevera', 'Código de Nevera')}
-        />
-      </View>
-
-      {/* Ubicación */}
-      <View style={styles.section}>
-        <View style={styles.ubicacionRow}>
-          <TouchableOpacity
-            style={[styles.btnCargarUbicacion, ubicacionConfirmada && styles.btnUbicacionConfirmada]}
-            onPress={handleConfirmarUbicacion}
-            disabled={loading}
-          >
-            <Text style={styles.btnCargarUbicacionText}>
-              {loading ? 'Obteniendo...' :
-                locationLoading ? 'Obteniendo...' :
-                  'Cargar Ubicación'}
-            </Text>
-          </TouchableOpacity>
-
-          <TextInput
-            style={[ubicacionConfirmada ? styles.inputUbicacionConfirmed : styles.inputUbicacion]}
-            placeholder="Ubicación"
-            value={latitude && longitude ? `${latitude}, ${longitude}` : ''}
-            editable={false}
+        <View style={styles.section}>
+          <Text style={styles.label}>Código de Nevera</Text>
+          <AutocompleteNeveraInput
+            value={codigoNevera}
+            onChangeText={setCodigoNevera}
+            onBarcodeScan={handleBarcodeScan}
+            onVoiceInput={() => handleVoiceInput('codigoNevera', 'Código de Nevera')}
           />
         </View>
-        <TouchableOpacity onPress={handleGoogleMaps} disabled={!latitude || !longitude}>
-          <Text style={{ color: '#007AFF', marginTop: 8, fontSize: 12 }}>https://maps.google.com/?q={latitude},{longitude}</Text>
-        </TouchableOpacity>
-        {locationError && !latitude && (
-          <Text style={styles.errorText}>{locationError}</Text>
-        )}
-      </View>
 
-      {/* Causas de Fallo */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Causas de fallo</Text>
-        {Object.keys(causasFallo).map((causa) => (
-          <TouchableOpacity
-            key={causa}
-            style={styles.checkboxContainer}
-            onPress={() => toggleCausa(causa)}
-          >
-            <View style={[styles.checkbox, causasFallo[causa] && styles.checkboxChecked]}>
-              {causasFallo[causa] && <Text style={styles.checkmark}>✓</Text>}
-            </View>
-            <Text style={styles.checkboxLabel}>{causasLabels[causa]}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Lugar de Instalación</Text>
-        {Object.keys(lugarInstalacion).map((lugar) => (
-          <TouchableOpacity
-            key={lugar}
-            style={styles.checkboxContainer}
-            onPress={() => toggleLugarInstalacion(lugar)}
-          >
-            <View style={[styles.checkbox, lugarInstalacion[lugar] && styles.checkboxChecked]}>
-              {lugarInstalacion[lugar] && <Text style={styles.checkmark}>✓</Text>}
-            </View>
-            <Text style={styles.checkboxLabel}>{lugarInstalacionLabels[lugar]}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-
-      {/* Observación */}
-      <View style={styles.section}>
-        <Text style={styles.label}>Observación</Text>
-        <EnhancedInput
-          value={observacion}
-          onChangeText={setObservacion}
-          placeholder="Escriba su observación aquí"
-          keyboardType="default"
-          showMicrophone={true}
-          onMicrophonePress={() => handleVoiceInput('observacion', 'Observación')}
-          multiline={true}
-          numberOfLines={4}
-        />
-      </View>
-
-      {/* Foto */}
-      <View style={styles.section}>
-        <Text style={styles.label}>Foto</Text>
-        {!foto ? (
-          <View style={styles.fotoContainer}>
-            <TouchableOpacity style={styles.fotoPlaceholder} onPress={handleTakePhoto}>
-              <Text style={styles.fotoIcon}>📷</Text>
-              <Text style={styles.fotoText}>Tomar foto</Text>
+        {/* Ubicación */}
+        <View style={styles.section}>
+          <View style={styles.ubicacionRow}>
+            <TouchableOpacity
+              style={[styles.btnCargarUbicacion, ubicacionConfirmada && styles.btnUbicacionConfirmada]}
+              onPress={handleConfirmarUbicacion}
+              disabled={loading}
+            >
+              <Text style={styles.btnCargarUbicacionText}>
+                {loading ? 'Obteniendo...' :
+                  locationLoading ? 'Obteniendo...' :
+                    'Cargar Ubicación'}
+              </Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.fotoPlaceholder} onPress={handlePickGallery}>
-              <Text style={styles.fotoIcon}>🖼️</Text>
-              <Text style={styles.fotoText}>Galería</Text>
-            </TouchableOpacity>
+
+            <TextInput
+              style={[ubicacionConfirmada ? styles.inputUbicacionConfirmed : styles.inputUbicacion]}
+              placeholder="Ubicación"
+              value={latitude && longitude ? `${latitude}, ${longitude}` : ''}
+              editable={false}
+            />
           </View>
-        ) : (
-          <View style={styles.fotoPreview}>
-            <Image source={{ uri: foto }} style={styles.fotoImage} />
-            <TouchableOpacity style={styles.btnEliminarFoto} onPress={handleEliminarFoto}>
-              <Text style={styles.btnEliminarFotoText}>🗑️ Eliminar foto</Text>
+          <TouchableOpacity onPress={handleGoogleMaps} disabled={!latitude || !longitude}>
+            <Text style={{ color: '#007AFF', marginTop: 8, fontSize: 12 }}>https://maps.google.com/?q={latitude},{longitude}</Text>
+          </TouchableOpacity>
+          {locationError && !latitude && (
+            <Text style={styles.errorText}>{locationError}</Text>
+          )}
+        </View>
+
+        {/* Causas de Fallo */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Causas de fallo</Text>
+          {Object.keys(causasFallo).map((causa) => (
+            <TouchableOpacity
+              key={causa}
+              style={styles.checkboxContainer}
+              onPress={() => toggleCausa(causa)}
+            >
+              <View style={[styles.checkbox, causasFallo[causa] && styles.checkboxChecked]}>
+                {causasFallo[causa] && <Text style={styles.checkmark}>✓</Text>}
+              </View>
+              <Text style={styles.checkboxLabel}>{causasLabels[causa]}</Text>
             </TouchableOpacity>
-          </View>
-        )}
-        {loading && <ActivityIndicator size="large" color="#2b4a8b" style={styles.loader} />}
-      </View>
+          ))}
+        </View>
 
-      <View style={styles.section}>
-        <Text style={styles.label}>Firma del cliente</Text>
-        <SignatureInput
-          ref={signatureRef}
-          onSignatureChange={handleSignatureChange}
-          error={null}
-        />
-        <TouchableOpacity style={styles.btnEliminarFoto} onPress={() => {
-          if (signatureRef.current) signatureRef.current.clearSignature();
-          setSignature(null);
-        }}>
-          <Text style={styles.btnEliminarFotoText}>🗑️ Eliminar firma</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Lugar de Instalación</Text>
+          {Object.keys(lugarInstalacion).map((lugar) => (
+            <TouchableOpacity
+              key={lugar}
+              style={styles.checkboxContainer}
+              onPress={() => toggleLugarInstalacion(lugar)}
+            >
+              <View style={[styles.checkbox, lugarInstalacion[lugar] && styles.checkboxChecked]}>
+                {lugarInstalacion[lugar] && <Text style={styles.checkmark}>✓</Text>}
+              </View>
+              <Text style={styles.checkboxLabel}>{lugarInstalacionLabels[lugar]}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+
+        {/* Observación */}
+        <View style={styles.section}>
+          <Text style={styles.label}>Observación</Text>
+          <EnhancedInput
+            value={observacion}
+            onChangeText={setObservacion}
+            placeholder="Escriba su observación aquí"
+            keyboardType="default"
+            showMicrophone={true}
+            onMicrophonePress={() => handleVoiceInput('observacion', 'Observación')}
+            multiline={true}
+            numberOfLines={4}
+          />
+        </View>
+
+        {/* Foto */}
+        <View style={styles.section}>
+          <Text style={styles.label}>Foto</Text>
+          {!foto ? (
+            <View style={styles.fotoContainer}>
+              <TouchableOpacity style={styles.fotoPlaceholder} onPress={handleTakePhoto}>
+                <Text style={styles.fotoIcon}>📷</Text>
+                <Text style={styles.fotoText}>Tomar foto</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.fotoPlaceholder} onPress={handlePickGallery}>
+                <Text style={styles.fotoIcon}>🖼️</Text>
+                <Text style={styles.fotoText}>Galería</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.fotoPreview}>
+              <Image source={{ uri: foto }} style={styles.fotoImage} />
+              <TouchableOpacity style={styles.btnEliminarFoto} onPress={handleEliminarFoto}>
+                <Text style={styles.btnEliminarFotoText}>🗑️ Eliminar foto</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {loading && <ActivityIndicator size="large" color="#2b4a8b" style={styles.loader} />}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.label}>Firma del cliente</Text>
+          <SignatureInput
+            ref={signatureRef}
+            onSignatureChange={handleSignatureChange}
+            error={null}
+          />
+          <TouchableOpacity style={styles.btnEliminarFoto} onPress={() => {
+            if (signatureRef.current) signatureRef.current.clearSignature();
+            setSignature(null);
+          }}>
+            <Text style={styles.btnEliminarFotoText}>🗑️ Eliminar firma</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Nombres y Apellidos */}
+        <View style={styles.section}>
+          <Text style={styles.label}>Nombres y Apellidos</Text>
+          <EnhancedInput
+            value={nombreApellidos}
+            onChangeText={setNombreApellidos}
+            placeholder="Nombres y Apellidos"
+            keyboardType="default"
+            showMicrophone={true}
+            onMicrophonePress={() => handleVoiceInput('nombreApellidos', 'Nombres y Apellidos')}
+          />
+        </View>
+
+        {/* DNI */}
+        <View style={styles.section}>
+          <Text style={styles.label}>DNI</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="DNI"
+            value={dni}
+            onChangeText={setDni}
+            keyboardType="numeric"
+          />
+        </View>
+
+        {/* Botón Crear */}
+        <TouchableOpacity
+          style={styles.btnCrear}
+          onPress={handleCrearInstalacionFallida}
+          disabled={loading}
+        >
+          <Text style={styles.btnCrearText}>CREAR INSTALACIÓN FALLIDA</Text>
         </TouchableOpacity>
-      </View>
 
-      {/* Nombres y Apellidos */}
-      <View style={styles.section}>
-        <Text style={styles.label}>Nombres y Apellidos</Text>
-        <EnhancedInput
-          value={nombreApellidos}
-          onChangeText={setNombreApellidos}
-          placeholder="Nombres y Apellidos"
-          keyboardType="default"
-          showMicrophone={true}
-          onMicrophonePress={() => handleVoiceInput('nombreApellidos', 'Nombres y Apellidos')}
+        {/* Modal de Escáner de Código de Barras */}
+        <Modal
+          visible={showBarcodeScanner}
+          animationType="slide"
+          onRequestClose={() => setShowBarcodeScanner(false)}
+        >
+          <BarcodeScanner
+            onCodeScanned={handleCodeScanned}
+            onClose={() => setShowBarcodeScanner(false)}
+          />
+        </Modal>
+
+        {/* Modal de Entrada por Voz */}
+        <VoiceInput
+          visible={showVoiceInput}
+          onClose={() => {
+            setShowVoiceInput(false);
+            setCurrentVoiceField(null);
+            setCurrentVoiceFieldLabel('');
+          }}
+          onResult={handleVoiceResult}
+          fieldLabel={currentVoiceFieldLabel}
+          removeSpaces={true}
         />
-      </View>
 
-      {/* DNI */}
-      <View style={styles.section}>
-        <Text style={styles.label}>DNI</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="DNI"
-          value={dni}
-          onChangeText={setDni}
-          keyboardType="numeric"
+        {/* Modal de GPS Requerido */}
+        <GPSRequiredModal
+          visible={showGPSModal}
+          onRetry={handleRetryGPS}
+          isChecking={isCheckingGPS}
         />
-      </View>
-
-      {/* Botón Crear */}
-      <TouchableOpacity
-        style={styles.btnCrear}
-        onPress={handleCrearInstalacionFallida}
-        disabled={loading}
-      >
-        <Text style={styles.btnCrearText}>CREAR INSTALACIÓN FALLIDA</Text>
-      </TouchableOpacity>
-
-      {/* Modal de Escáner de Código de Barras */}
-      <Modal
-        visible={showBarcodeScanner}
-        animationType="slide"
-        onRequestClose={() => setShowBarcodeScanner(false)}
-      >
-        <BarcodeScanner
-          onCodeScanned={handleCodeScanned}
-          onClose={() => setShowBarcodeScanner(false)}
-        />
-      </Modal>
-
-      {/* Modal de Entrada por Voz */}
-      <VoiceInput
-        visible={showVoiceInput}
-        onClose={() => {
-          setShowVoiceInput(false);
-          setCurrentVoiceField(null);
-          setCurrentVoiceFieldLabel('');
-        }}
-        onResult={handleVoiceResult}
-        fieldLabel={currentVoiceFieldLabel}
-        removeSpaces={true}
-      />
-
-      {/* Modal de GPS Requerido */}
-      <GPSRequiredModal
-        visible={showGPSModal}
-        onRetry={handleRetryGPS}
-        isChecking={isCheckingGPS}
-      />
+      </ScrollView>
       <Toast />
-    </ScrollView>
+    </View>
   );
 };
 
