@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -405,6 +405,21 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     return () => clearTimeout(timeoutId);
   }, [formDataStep1.codigoNevera, formDataStep1.imei, instalacionData.codigo]);
 
+  // Validar código de nevera cuando el usuario deja de escribir (debounce)
+  useEffect(() => {
+    const codigoNevera = formDataStep1.codigoNevera.trim();
+
+    // Solo validar si tiene 10 o más caracteres y estamos en el paso 1
+    if (currentStep === 1 && codigoNevera.length >= 10) {
+      const validationTimer = setTimeout(() => {
+        console.log('⏱️ Usuario dejó de escribir, validando código de nevera...');
+        handleValidateNeveraCode(codigoNevera);
+      }, 500); 
+
+      return () => clearTimeout(validationTimer);
+    }
+  }, [formDataStep1.codigoNevera, currentStep, handleValidateNeveraCode]);
+
   // Manejar cambio de campo - Paso 2
   const handleChangeFieldStep2 = (fieldName, value) => {
     setFormDataStep2({ ...formDataStep2, [fieldName]: value });
@@ -719,8 +734,8 @@ const NuevaInstalacionScreen = ({ navigation }) => {
     });
   };
 
-  // Función helper para validar código de nevera (usada por escáner, voz y onBlur)
-  const handleValidateNeveraCode = async (codigo) => {
+  // Función helper para validar código de nevera (usada por escáner, voz y debounce)
+  const handleValidateNeveraCode = useCallback(async (codigo) => {
     const codigoTrimmed = codigo?.trim();
     
     if (codigoTrimmed && codigoTrimmed.length >= 10) {
@@ -755,7 +770,7 @@ const NuevaInstalacionScreen = ({ navigation }) => {
         }
       }
     }
-  };
+  }, []); // Sin dependencias porque showToast y validateNeveraStatus son estables
 
   // Validación dinámica cuando el usuario sale de un campo (onBlur)
   const handleValidateField = async (fieldName) => {

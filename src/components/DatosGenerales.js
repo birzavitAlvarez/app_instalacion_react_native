@@ -27,7 +27,6 @@ const DatosGenerales = ({
           }}
           onBarcodeScan={() => onBarcodeScan('codigoNevera')}
           onVoiceInput={() => onVoiceInput('codigoNevera', 'Código de Nevera')}
-          onBlur={() => onValidateField && onValidateField('codigoNevera')}
         />
         {errors.codigoNevera && (
           <Text style={styles.errorText}>{errors.codigoNevera}</Text>
