@@ -18,7 +18,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import Toast from 'react-native-toast-message';
 import { getAppVersion } from "../services/historialService";
 
-const CURRENT_BUILD_CODE = "AppTecnicosV2.2.15";
+const CURRENT_BUILD_CODE = "AppTecnicosV2.2.16";
 const HomeScreen = () => {
   const navigation = useNavigation();
   const { signOut, userInfo } = useContext(AuthContext)

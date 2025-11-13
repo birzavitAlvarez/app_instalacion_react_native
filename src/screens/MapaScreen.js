@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useContext, useMemo } from "react";
+import { useEffect, useState, useContext, useMemo, useCallback } from "react";
+import React from "react";
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Platform } from "react-native";
 import { Marker, Callout, PROVIDER_GOOGLE } from "react-native-maps";
 import MapView from "react-native-map-clustering";
@@ -11,6 +12,43 @@ import { BlurView } from "@react-native-community/blur";
 import GPSRequiredModal from "../components/GPSRequiredModal";
 import Icon from 'react-native-vector-icons/FontAwesome';
 
+const MarkerPopup = React.memo(({ marker }) => (
+    <View style={styles.callout}>
+        <Text style={styles.title}>{marker.title}</Text>
+        <Text style={styles.text}>{marker.direccion}</Text>
+        <Text style={styles.text}>Vendedor: {marker.vendedor}</Text>
+        <Text style={styles.text}>Día Visita: {marker.dia_visita}</Text>
+        <Text style={[styles.text, { marginTop: 6, fontWeight: "bold" }]}>
+            Neveras:
+        </Text>
+        {marker.neveras?.map((n, i) => (
+            <Text key={i} style={styles.text}>• {n}</Text>
+        ))}
+    </View>
+));
+
+const CustomMarker = React.memo(({ marker }) => (
+    <Marker
+        coordinate={{
+            latitude: marker.latitude,
+            longitude: marker.longitude,
+        }}
+    >
+        <View
+            style={{
+                backgroundColor: marker.color || "#3F51B5",
+                width: 20,
+                height: 20,
+                borderRadius: 10,
+                borderColor: "#fff",
+                borderWidth: 2,
+            }}
+        />
+        <Callout>
+            <MarkerPopup marker={marker} />
+        </Callout>
+    </Marker>
+));
 
 
 const MapaScreen = () => {
@@ -23,6 +61,8 @@ const MapaScreen = () => {
     const { latitude, longitude, isLoading: locationLoading, error: locationError, getCurrentLocation, checkGPSStatus, isGPSEnabled, startGPSMonitoring, stopGPSMonitoring } = useLocation();
     const [showGPSModal, setShowGPSModal] = useState(false);
     const [isCheckingGPS, setIsCheckingGPS] = useState(false);
+    const [visibleRegion, setVisibleRegion] = useState(DEFAULT_REGION);
+    const [visibleMarkers, setVisibleMarkers] = useState([]);
     useEffect(() => {
         const verifyGPS = async () => {
             setIsCheckingGPS(true);
@@ -155,75 +195,78 @@ const MapaScreen = () => {
     useEffect(() => {
         const cargarDataMapa = async () => {
             try {
-                if (!idUsuario) {
-                    Toast.show({
-                        type: "error",
-                        text1: "Error de sesión",
-                        text2: "No se encontró el ID del usuario",
-                        position: "bottom",
-                    });
-                    return;
-                }
-
                 const usuarioRes = await getUsuarioPersonalArea(idUsuario);
                 const dni = usuarioRes.dni;
                 const rutaRes = await listaItemsRutaByTecnico(dni);
 
-                console.log("📦 Datos crudos de la API:", rutaRes);
-
                 if (rutaRes.status === 1 && Array.isArray(rutaRes.data)) {
                     const grouped = Object.values(
                         rutaRes.data.reduce((acc, item) => {
-                            const key = `${item.latitud},${item.longitud},${item.cliente},${item.vendedor},${item.direccion}`;
-                            if (!acc[key]) {
-                                acc[key] = {
-                                    ...item,
-                                    neveras: [],
-                                };
-                            }
+                            const key = `${item.latitud},${item.longitud},${item.cliente}`;
+                            if (!acc[key]) acc[key] = { ...item, neveras: [] };
                             acc[key].neveras.push(item.codigo_nevera);
                             return acc;
                         }, {})
                     );
 
-                    const formatted = grouped.map((item, index) => ({
-                        id: index,
+                    const formatted = grouped.map((item, i) => ({
+                        id: i,
                         latitude: parseFloat(item.latitud),
                         longitude: parseFloat(item.longitud),
                         title: item.cliente,
                         direccion: item.direccion,
                         vendedor: item.vendedor,
                         neveras: item.neveras,
-                        color: item.color || "red",
+                        dia_visita: item.dia_visita,
+                        color: item.color || "#3F51B5",
                     }));
 
-
-                    setMarkers(formatted);
+                    setMarkers((prev) =>
+                        JSON.stringify(prev) !== JSON.stringify(formatted)
+                            ? formatted
+                            : prev
+                    );
                 } else {
                     Toast.show({
                         type: "info",
                         text1: "Sin resultados",
                         text2: "No hay rutas para este técnico",
-                        position: "bottom",
                     });
                 }
-            } catch (error) {
-                console.error("Error mapa:", error);
+            } catch {
                 Toast.show({
                     type: "error",
                     text1: "Error al cargar mapa",
                     text2: "Verifica tu conexión o API",
-                    position: "bottom",
                 });
             } finally {
                 setLoading(false);
             }
         };
 
-        cargarDataMapa();
+        if (idUsuario) cargarDataMapa();
     }, [idUsuario]);
 
+    const onRegionChange = useCallback((region) => {
+        setVisibleRegion(region);
+    }, []);
 
+    useEffect(() => {
+        const filtered = markers.filter(
+            (m) =>
+                m.latitude >= visibleRegion.latitude - visibleRegion.latitudeDelta / 2 &&
+                m.latitude <= visibleRegion.latitude + visibleRegion.latitudeDelta / 2 &&
+                m.longitude >= visibleRegion.longitude - visibleRegion.longitudeDelta / 2 &&
+                m.longitude <= visibleRegion.longitude + visibleRegion.longitudeDelta / 2
+        );
+        setVisibleMarkers(filtered);
+    }, [visibleRegion, markers]);
+
+
+    const memoizedMarkers = useMemo(
+        () => visibleMarkers.map((marker) => <CustomMarker key={marker.id} marker={marker} />),
+        [visibleMarkers]
+    );
 
     if (GOOGLE_MAPS_API_KEY === 'API_KEY') {
         return (
@@ -246,59 +289,6 @@ const MapaScreen = () => {
         );
     }
 
-    const memoizedMarkers = useMemo(() => {
-        return markers.map((marker) => (
-            <Marker
-                key={marker.id}
-                coordinate={{
-                    latitude: marker.latitude,
-                    longitude: marker.longitude,
-                }}
-            >
-                <View
-                    style={{
-                        backgroundColor: marker.color || "#3F51B5",
-                        width: 20,
-                        height: 20,
-                        borderRadius: 10,
-                        borderColor: "#fff",
-                        borderWidth: 2,
-                    }}
-                />
-
-                <Callout tooltip>
-                    <View style={styles.callout}>
-                        <Text style={styles.title}>{marker.title}</Text>
-                        <Text style={styles.text}>{marker.direccion}</Text>
-                        <Text style={styles.text}>Vendedor: {marker.vendedor}</Text>
-
-                        <Text style={[styles.text, { marginTop: 6, fontWeight: "bold" }]}>
-                            Neveras:
-                        </Text>
-                        {marker.neveras.map((n, i) => (
-                            <Text key={i} style={styles.text}>
-                                • {n}
-                            </Text>
-                        ))}
-
-                        {marker.desplazado && (
-                            <Text style={{ color: "orange", marginTop: 4, fontSize: 12 }}>
-                                Posición ajustada para evitar superposición
-                            </Text>
-                        )}
-
-                        <View
-                            style={{ position: "absolute", bottom: 0, right: 0, padding: 2 }}
-                        >
-                            <Text style={{ fontSize: 10, color: "#adadadff" }}>
-                                {marker.color}
-                            </Text>
-                        </View>
-                    </View>
-                </Callout>
-            </Marker>
-        ));
-    }, [markers]);
 
     return (
         <View style={styles.container}>
@@ -315,30 +305,35 @@ const MapaScreen = () => {
                 style={styles.map}
                 initialRegion={DEFAULT_REGION}
                 showsUserLocation
+                clusterColor="#2b4a8b"
                 showsCompass
-                clusterColor="#3F51B5"
-                clusterRadius={90}
-                clusterInitialZoom={12}
-                clusterTextColor="#fff"
+                onRegionChangeComplete={onRegionChange}
             >
-                {memoizedMarkers}
+                {visibleMarkers.map((marker) => (
+                    <Marker
+                        key={marker.id}
+                        coordinate={{
+                            latitude: marker.latitude,
+                            longitude: marker.longitude,
+                        }}
+                    >
+                        <View
+                            style={{
+                                backgroundColor: marker.color || "#3F51B5",
+                                width: 20,
+                                height: 20,
+                                borderRadius: 10,
+                                borderColor: "#fff",
+                                borderWidth: 2,
+                            }}
+                        />
+                        <Callout>
+                            <MarkerPopup marker={marker} />
+                        </Callout>
+                    </Marker>
+                ))}
             </MapView>
 
-            {(loading || !latitude || !longitude) && (
-                <View style={styles.loadingOverlay}>
-                    {Platform.OS === "ios" ? (
-                        <BlurView style={styles.blurView} blurType="light" blurAmount={8} />
-                    ) : (
-                        <View style={styles.blurFallback} />
-                    )}
-                    <View style={styles.loadingContent}>
-                        <ActivityIndicator size="large" color="#007AFF" />
-                        <Text style={styles.loadingText}>
-                            {loading ? "Cargando mapa..." : "Obteniendo ubicación..."}
-                        </Text>
-                    </View>
-                </View>
-            )}
 
             <GPSRequiredModal
                 visible={showGPSModal}
