@@ -61,7 +61,9 @@ const NuevaInstalacionFallidaScreen = () => {
   const [dni, setDni] = useState('');
   const [loading, setLoading] = useState(false);
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
+  const [pdvSinCensoActualizado, setPdvSinCensoActualizado] = useState(false);
   const signatureRef = useRef(null);
+
 
   // Estados para entrada por voz
   const [showVoiceInput, setShowVoiceInput] = useState(false);
@@ -119,6 +121,8 @@ const NuevaInstalacionFallidaScreen = () => {
     };
   }, []);
 
+
+
   // Reintentar verificación de GPS
   const handleRetryGPS = async () => {
     setIsCheckingGPS(true);
@@ -169,16 +173,44 @@ const NuevaInstalacionFallidaScreen = () => {
     }
   }, [locationLoading, latitude, longitude]);
 
-  // Manejar cambio de checkbox
+
+
+  const togglePdvSinCenso = () => {
+    const nuevoValor = !pdvSinCensoActualizado;
+    setPdvSinCensoActualizado(nuevoValor);
+
+    if (nuevoValor) {
+      const resetCausas = {};
+      Object.keys(causasFallo).forEach(key => resetCausas[key] = false);
+      setCausasFallo(resetCausas);
+
+      const resetLugar = {};
+      Object.keys(lugarInstalacion).forEach(key => resetLugar[key] = false);
+      setLugarInstalacion(resetLugar);
+    }
+  };
+
   const toggleCausa = (causa) => {
-    setCausasFallo({ ...causasFallo, [causa]: !causasFallo[causa] });
+    if (pdvSinCensoActualizado) {
+      setPdvSinCensoActualizado(false);
+    }
+
+    setCausasFallo({
+      ...causasFallo,
+      [causa]: !causasFallo[causa]
+    });
   };
 
   const toggleLugarInstalacion = (lugar) => {
+    if (pdvSinCensoActualizado) {
+      setPdvSinCensoActualizado(false);
+    }
+
     const nuevosValores = Object.keys(lugarInstalacion).reduce((acc, key) => {
       acc[key] = key === lugar ? !lugarInstalacion[lugar] : false;
       return acc;
     }, {});
+
     setLugarInstalacion(nuevosValores);
   };
 
@@ -371,26 +403,43 @@ const NuevaInstalacionFallidaScreen = () => {
     }
 
     const causasSeleccionadas = Object.values(causasFallo).filter(Boolean).length;
-    if (causasSeleccionadas === 0) {
+    const lugarSeleccionado = Object.values(lugarInstalacion).filter(Boolean).length;
+
+    if (!pdvSinCensoActualizado && causasSeleccionadas === 0 && lugarSeleccionado === 0) {
       Toast.show({
         type: 'error',
-        text1: 'Causa requerida',
-        text2: 'Selecciona al menos una causa de fallo',
+        text1: 'Opción requerida',
+        text2: 'Selecciona una causa, un lugar o PDV sin censo actualizado',
         position: 'bottom',
       });
       return;
     }
 
-    const lugarSeleccionado = Object.values(lugarInstalacion).filter(Boolean).length;
-    if (lugarSeleccionado === 0) {
-      Toast.show({
-        type: 'error',
-        text1: 'Lugar requerido',
-        text2: 'Selecciona al menos un lugar de instalación',
-        position: 'bottom',
-      });
-      return;
+    if (!pdvSinCensoActualizado) {
+
+      const causasSeleccionadas = Object.values(causasFallo).filter(Boolean).length;
+      if (causasSeleccionadas === 0) {
+        Toast.show({
+          type: 'error',
+          text1: 'Causa requerida',
+          text2: 'Selecciona al menos una causa de fallo',
+          position: 'bottom',
+        });
+        return;
+      }
+
+      const lugarSeleccionado = Object.values(lugarInstalacion).filter(Boolean).length;
+      if (lugarSeleccionado === 0) {
+        Toast.show({
+          type: 'error',
+          text1: 'Lugar requerido',
+          text2: 'Selecciona al menos un lugar de instalación',
+          position: 'bottom',
+        });
+        return;
+      }
     }
+
 
     if (!observacion.trim()) {
       Toast.show({
@@ -546,6 +595,7 @@ const NuevaInstalacionFallidaScreen = () => {
         clienteRespNombreApellido: nombreApellidos,
         clienteRespDni: dni,
         pdfPath: "",
+        pdv_sin_censo_actualizado: pdvSinCensoActualizado ? "SI" : "NO"
       };
 
       console.log("Payload listo para enviar:", JSON.stringify(payload, null, 2));
@@ -610,10 +660,9 @@ const NuevaInstalacionFallidaScreen = () => {
       setNombreApellidos("");
       setDni("");
       setFoto(null);
-
       setCausasFallo(Object.keys(causasFallo).reduce((acc, key) => ({ ...acc, [key]: false }), {}));
       setLugarInstalacion(Object.keys(lugarInstalacion).reduce((acc, key) => ({ ...acc, [key]: false }), {}));
-
+      setPdvSinCensoActualizado(false);
       if (signatureRef.current) signatureRef.current.clearSignature();
 
     } catch (error) {
@@ -719,9 +768,28 @@ const NuevaInstalacionFallidaScreen = () => {
           )}
         </View>
 
-        {/* Causas de Fallo */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Causas de fallo</Text>
+
+          <TouchableOpacity
+            style={styles.checkboxContainer}
+            onPress={togglePdvSinCenso}
+          >
+            <View style={[
+              styles.checkbox,
+              pdvSinCensoActualizado && styles.checkboxChecked
+            ]}>
+              {pdvSinCensoActualizado && <Text style={styles.checkmark}>✓</Text>}
+            </View>
+
+            <Text style={styles.checkboxLabel}>
+              PDV sin censo actualizado
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Causas de Fallo */}
+        <View style={styles.section}>
           {Object.keys(causasFallo).map((causa) => (
             <TouchableOpacity
               key={causa}
