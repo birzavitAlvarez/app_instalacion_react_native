@@ -617,17 +617,35 @@ const NuevaInstalacionFallidaScreen = () => {
         .filter(Boolean)
         .join(" // ");
 
+      const ahora = new Date();
+
+      const fecha = ahora.toLocaleDateString("es-PE", {
+        timeZone: "America/Lima",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).split("/").reverse().join("-");
+
+      const hora = ahora.toLocaleTimeString("es-PE", {
+        timeZone: "America/Lima",
+        hour12: false,
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+
       const payloadGestion = {
         cod_nevera: codigoNevera,
         tecnico: userInfo?.idUsuario,
-        fecha: new Date().toISOString().slice(0, 10),
-        hora: new Date().toLocaleTimeString("es-PE", { hour12: false }),
+        fecha,
+        hora,
         status: 3,
         imei: "",
         informe: res?.pdfPath || "",
         motivos: causasSeleccionadas,
         observacion: observacionFinal || "",
       };
+
 
       console.log("Payload gestión listo:", payloadGestion);
 
