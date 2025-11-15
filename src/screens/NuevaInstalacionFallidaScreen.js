@@ -811,8 +811,14 @@ const NuevaInstalacionFallidaScreen = () => {
           {Object.keys(causasFallo).map((causa) => (
             <TouchableOpacity
               key={causa}
-              style={styles.checkboxContainer}
-              onPress={() => toggleCausa(causa)}
+              style={[
+                styles.checkboxContainer,
+                pdvSinCensoActualizado && { opacity: 0.4 }
+              ]}
+              onPress={() => {
+                if (!pdvSinCensoActualizado) toggleCausa(causa);
+              }}
+              disabled={pdvSinCensoActualizado}
             >
               <View style={[styles.checkbox, causasFallo[causa] && styles.checkboxChecked]}>
                 {causasFallo[causa] && <Text style={styles.checkmark}>✓</Text>}
@@ -827,8 +833,14 @@ const NuevaInstalacionFallidaScreen = () => {
           {Object.keys(lugarInstalacion).map((lugar) => (
             <TouchableOpacity
               key={lugar}
-              style={styles.checkboxContainer}
-              onPress={() => toggleLugarInstalacion(lugar)}
+              style={[
+                styles.checkboxContainer,
+                pdvSinCensoActualizado && { opacity: 0.4 }
+              ]}
+              onPress={() => {
+                if (!pdvSinCensoActualizado) toggleLugarInstalacion(lugar);
+              }}
+              disabled={pdvSinCensoActualizado}
             >
               <View style={[styles.checkbox, lugarInstalacion[lugar] && styles.checkboxChecked]}>
                 {lugarInstalacion[lugar] && <Text style={styles.checkmark}>✓</Text>}
